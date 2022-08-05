@@ -1,0 +1,16 @@
+pub enum Packet {
+    CONNECT,
+    CONNACK,
+    PUBLISH,
+    PUBACK,
+    PUBREL,
+    PUBCOMP,
+    SUBSCRIBE,
+    SUBACK,
+    UNSUBSCRIBE,
+    UNSUBACK,
+    PINGREQ,
+    PINGRESP,
+    DISCONNECT,
+    AUTH,
+}
