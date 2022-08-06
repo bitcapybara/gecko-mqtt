@@ -1,5 +1,5 @@
 [package]
-name = "gecko"
+name = "gecko-mqtts"
 version = "0.1.0"
 edition = "2021"
 

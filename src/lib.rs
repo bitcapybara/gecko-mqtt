@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+//! 一个 mqtt 服务端库，用户可以使用此库构建自己的 mqtt broker
+
 use async_trait::async_trait;
 
 use error::Result;
@@ -7,9 +9,9 @@ use error::Result;
 pub mod broker;
 pub mod config;
 pub mod error;
-pub mod packet;
-mod connection;
 mod network;
+pub mod packet;
+mod protocol;
 
 /// 存储接口，可由用户指定实现
 /// * 对于单节点部署，推荐使用本地嵌入式 kv 存储

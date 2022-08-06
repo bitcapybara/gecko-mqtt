@@ -1,26 +1,21 @@
 # gecko-mqtt
 
 ## 网络层
-* Network
-    * 依赖 Connection
-    * 后台 readloop + writeloop
-    * 提供读写 bytes 的方法
 * Connection
+    * 代表一条 tcp 连接
     * tcp read + tcp write
+    * 提供 packet 读写
     * **单元测试**
 
 ## 协议层
-* 依赖网络层 Network 进行数据读写
+* 依赖网络层 Connection 进行数据读写
 * Packet
     * 报文数据解析
     * bytes <-> packet
     * **单元测试**
-* Protocol
-    * Network + Packet
-    * 以 Packet 为单位进行数据读写
 * Router
     * 转发层，依赖所有协议报文处理 Handlers
-* Connection
+* ConnectionEventLoop
     * 代表一个客户端连接，保存连接信息
     * readloop 从 Protocol 读取报文，提交给 Router
     * keepalive 处理

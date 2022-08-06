@@ -6,7 +6,7 @@ pub struct BrokerConfig {
     pub addr: String,
 }
 
-/// 代表一个 gecko 节点
+/// 代表一个 mqtts 节点
 pub struct Broker {
     addr: String,
 }
@@ -30,7 +30,7 @@ impl Broker {
             };
             log::info!("new stream comming in: {}", addr)
 
-            // 
+            //
         }
     }
 }
