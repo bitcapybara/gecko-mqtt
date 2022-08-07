@@ -1,4 +1,4 @@
-use bytes::BytesMut;
+use bytes::{BytesMut, Buf};
 
 use crate::error::Result;
 
@@ -40,8 +40,52 @@ struct FixedHeader {
 }
 
 impl FixedHeader {
-    fn read_from(_stream: &mut BytesMut) -> Result<Self> {
-        todo!()
+    fn read_from(stream: &mut BytesMut) -> Result<Self> {
+        let stream_len = stream.len();
+        if stream_len < 2 {
+            // return err 字节不足
+            todo!()
+        }
+        // 第一个字节
+        let byte1 = stream.get_u8();
+
+        let mut remaining_len: usize = 0;
+        let mut header_len = 0;
+        let mut done = false;
+        let mut shift = 0;
+        while stream.has_remaining() {
+            // 固定头长度 + 1
+            header_len += 1;
+            // 剩余长度字节
+            let byte = stream.get_u8() as usize;
+            // 字节的后七位 * 128 + 上一个字节
+            remaining_len += (byte & 0x7F) << shift;
+
+            // 是否还有后续 remining_len 字节
+            done = (byte & 0x80) == 0;
+            if done {
+                break
+            }
+
+            shift += 7;
+
+            // 剩余长度字节最多四个字节（0，7，14，21）
+            if shift > 21 {
+                // err
+                todo!()
+            }
+        }
+
+        if !done {
+            // err
+            todo!()
+        }
+        
+        Ok(Self {
+            byte1,
+            fixed_header_len: header_len,
+            remaining_len,
+        })
     }
 
     fn packet_type(&self) -> PacketType {
