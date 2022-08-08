@@ -1,6 +1,7 @@
 # gecko-mqtt
 
-连接 (Connection)、会话 (Session)、路由 (Router)、集群 (Cluster) 分层
+* 连接 (Connection)、会话 (Session)、路由 (Router)、集群 (Cluster) 分层
+* 持久化：会话，配置，路由表
 
 ## 网络层
 * ClientConnection
