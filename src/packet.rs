@@ -1,4 +1,4 @@
-use bytes::{BytesMut, Buf};
+use bytes::{Buf, BytesMut};
 
 use crate::error::Result;
 
@@ -6,6 +6,8 @@ use self::connect::Connect;
 
 mod connect;
 mod pingreq;
+pub(crate) mod publish;
+pub(crate) mod subscribe;
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,6 +30,16 @@ enum PacketType {
 enum Version {
     V311,
     V5,
+}
+
+/// 服务质量
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, serde::Serialize, serde::Deserialize)]
+#[allow(clippy::enum_variant_names)]
+pub(crate) enum QoS {
+    AtMostOnce = 1,
+    AtLeastOnce,
+    ExactlyOnce,
 }
 
 struct FixedHeader {
@@ -64,7 +76,7 @@ impl FixedHeader {
             // 是否还有后续 remining_len 字节
             done = (byte & 0x80) == 0;
             if done {
-                break
+                break;
             }
 
             shift += 7;
@@ -80,7 +92,7 @@ impl FixedHeader {
             // err
             todo!()
         }
-        
+
         Ok(Self {
             byte1,
             fixed_header_len: header_len,

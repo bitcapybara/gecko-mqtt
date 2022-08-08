@@ -9,6 +9,6 @@ use super::Incoming;
 pub(crate) struct Router {
     /// 各个客户端连接发送过来需要处理的数据
     incoming_rx: Receiver<Incoming>,
-    /// 管理客户端连接信息
+    /// 管理客户端连接信息，
     conns: HashSet<usize>,
 }

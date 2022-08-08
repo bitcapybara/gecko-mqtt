@@ -5,8 +5,12 @@ use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::{error::Result, network};
 
-mod connection;
+pub use session::SessionStore;
+
 mod router;
+mod session;
+
+pub(crate) type ConnectionId = usize;
 
 /// 发送给 router 的消息
 enum Incoming {}
@@ -17,7 +21,8 @@ enum Outcoming {}
 /// 一个客户端连接**事件循环**
 pub(crate) struct ConnectionEventLoop {
     /// 当前客户端连接对应的底层网络连接
-    conn: network::Connection,
+    conn: network::DeviceConnection,
+    
     /// 给 router 发送消息的管道
     router_tx: Sender<Incoming>,
     /// 从协议层接收到的消息
