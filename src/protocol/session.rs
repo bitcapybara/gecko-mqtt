@@ -9,8 +9,11 @@ use crate::{
 
 use super::{ConnectionId, Outcoming};
 
-/// session 会话里，需要持久化的信息
-pub struct SessionStore {
+/// session 会话
+/// 每个客户端必定对应一个会话
+/// clean_session = false 需要持久化
+/// clean_session = true 内存保存即可
+pub struct SessionState {
     /// 客户端id（客户端生成）,immutable
     client_id: String,
     /// clean session（持久化）,immutable
@@ -23,7 +26,7 @@ pub struct SessionStore {
     /// 如果存在表明设备断开了连接，开始计时直到会话过期删除
     /// TODO 考虑 broker 崩溃重启的情况
     disconnect_at: Option<u128>,
-    /// 过期时长,immutable
+    /// 过期时长
     expire: Duration,
 }
 
@@ -34,11 +37,13 @@ pub struct SessionStore {
 struct Session<M: MetaStore> {
     /// 客户端连接 id（服务端分配）
     id: ConnectionId,
+    /// 会话状态
+    state: SessionState,
 
     /// 发送给客户端的消息
     conn_tx: Sender<Outcoming>,
-    /// 元数据存储
-    meta_store: M,
+    /// 持久化存储
+    persist: M,
 }
 
 impl<M: MetaStore> Session<M> {

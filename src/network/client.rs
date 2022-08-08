@@ -6,7 +6,7 @@ use crate::{error::Result, packet::Packet};
 /// 设备与服务器之间的连接
 /// 单纯的 tcp 读写管理
 /// 以 packet 为单位读写
-pub(crate) struct DeviceConnection {
+pub(crate) struct ClientConnection {
     /// tcp 连接
     stream: TcpStream,
     /// 读缓冲区
@@ -19,7 +19,7 @@ pub(crate) struct DeviceConnection {
     packets: Option<Vec<Packet>>,
 }
 
-impl DeviceConnection {
+impl ClientConnection {
     /// 等待从 socket 读出至少所需长度的数据，放入缓冲区
     /// 如果读不到指定长度的数据，返回错误
     async fn read_bytes(_required: usize) -> Result<()> {
