@@ -3,15 +3,23 @@
 * 连接 (Connection)、会话 (Session)、路由 (Router)、集群 (Cluster) 分层
 * 持久化：会话，配置，路由表
 
+## 集群层
+* Manager
+    * 分别提供单机，raft，etcd集群管理器
+    * 维护节点信息
+* Connection
+    * 维护到所有其他节点的 grpc 连接
+    * 用于节点间同步信息
+* Storage
+    * 强一致性存储集群数据
+    * 保存路由表，会话等全局共用信息
+
 ## 网络层
-* ClientConnection
+* Connection
     * 代表一条 tcp 连接
     * tcp read + tcp write
     * 提供 packet 读写
     * **单元测试**
-* PeerConnection
-    * 维护到所有其他节点的 grpc 连接
-    * 用于节点间同步信息
 * Packet
     * 报文数据解析
     * bytes <-> packet
@@ -21,6 +29,9 @@
 * Session 
     * 如果 clea_session = true，会话仅保存到内存即可
     * 如果 clea_session = false，需要集群全局持久化，保存客户端订阅信息
+* 处理 Qos0/1/2 消息接收与下发
+* 消息超时重传与离线消息保存
+* 通过飞行窗口（Inflight Window）实现下发消息吞吐控制与顺序保证
 
 ## 协议层
 * 依赖网络层 Connection 进行数据读写
@@ -51,11 +62,8 @@ https://www.emqx.io/docs/zh/v5.0/design/design.html#%E7%B3%BB%E7%BB%9F%E6%9E%B6%
 2. 接收到 publish 消息的节点，根据路由表，把 publish 消息发送到对应节点
 3. 节点间消息转发使用 **GRPC** 实现
 
-### 节点下线/宕机
+### 节点下线/上线
 1. 如果节点主动下线，则下线之前删除**路由表**中相关记录
-1. 如果节点宕机后，底层的集群节点发现服务首先发现，getNodesInfoByIds 接口查询宕机节点会NotFound
 2. 客户端连接连接到新的节点
     * 如果 session 存在，则新节点加载 session 的信息，触发路由表更新操作
     * 如果 session 不存在或不可用，则当 client 重新订阅时，触发路由表更新操作
-    * 新节点更新路由表，发现路由表相同路径已经绑定过节点，但是根据 getNodesInfoByIds 得知旧节点已不存在
-    * 新节点覆盖宕机节点相关的**路由表**记录

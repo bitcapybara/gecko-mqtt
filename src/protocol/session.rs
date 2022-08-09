@@ -4,7 +4,7 @@ use tokio::sync::mpsc::Sender;
 
 use crate::{
     packet::{publish::Publish, subscribe::Subscribe},
-    MetaStore,
+    cluster::Storage,
 };
 
 use super::{ConnectionId, Outcoming};
@@ -34,7 +34,7 @@ pub struct SessionState {
 /// 会话的生命周期不能小于一次客户端连接
 /// 处理协议层客户端逻辑，如 QoS1, QoS2 的消息保存等
 /// 协议层会话和网络层连接通过 ConnectionEventLoop 进行通信
-struct Session<M: MetaStore> {
+struct Session {
     /// 客户端连接 id（服务端分配）
     id: ConnectionId,
     /// 会话状态
@@ -43,10 +43,10 @@ struct Session<M: MetaStore> {
     /// 发送给客户端的消息
     conn_tx: Sender<Outcoming>,
     /// 持久化存储
-    persist: M,
+    persist: Storage,
 }
 
-impl<M: MetaStore> Session<M> {
+impl Session {
     /// 传入的 topic 是否与客户端订阅匹配
     fn topic_match(_topic: String) -> bool {
         todo!()
