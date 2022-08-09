@@ -3,9 +3,7 @@
 
 use tokio::sync::mpsc::{Receiver, Sender};
 
-use crate::{
-    error::Result, network, cluster,
-};
+use crate::{cluster, error::Result, network};
 
 pub use session::SessionState;
 

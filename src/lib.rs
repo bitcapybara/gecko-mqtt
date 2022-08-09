@@ -7,12 +7,12 @@ use std::result::Result;
 use async_trait::async_trait;
 
 pub mod broker;
+mod cluster;
 pub mod config;
 pub mod error;
 mod network;
 pub mod packet;
 mod protocol;
-mod cluster;
 
 /// mqtt事件发生时的回调，由用户实现
 #[async_trait]

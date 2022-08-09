@@ -4,10 +4,6 @@
 //！async fn close(&self) -> Result<(), Self::Error>;
 //! async fn add_new_session(session: SessionState) -> Result<(), Self::Error>;
 
-pub(crate) struct Storage {
+pub(crate) struct Storage {}
 
-}
-
-impl Storage {
-
-}
+impl Storage {}

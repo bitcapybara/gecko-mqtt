@@ -8,6 +8,6 @@
 pub(crate) use connection::Connection;
 pub(crate) use storage::Storage;
 
-mod manager;
 mod connection;
+mod manager;
 mod storage;
