@@ -2,7 +2,9 @@ use bytes::{Buf, BytesMut};
 
 use crate::error::Result;
 
-use self::connect::Connect;
+pub(crate) use connect::Connect;
+pub(crate) use publish::Publish;
+pub(crate) use subscribe::Subscribe;
 
 mod connect;
 mod pingreq;

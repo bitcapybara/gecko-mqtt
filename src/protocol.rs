@@ -3,7 +3,7 @@
 
 use tokio::sync::mpsc::{Receiver, Sender};
 
-use crate::{cluster, error::Result, network};
+use crate::{error::Result, network};
 
 pub use session::SessionState;
 
@@ -18,12 +18,10 @@ enum Incoming {}
 /// router 发送给客户端的回复
 enum Outcoming {}
 
-/// 一个客户端连接**事件循环**
+/// 一个客户端或对等节点连接的**事件循环**
 pub(crate) struct ConnectionEventLoop {
-    /// 当前客户端连接对应的底层网络连接
-    client_conn: network::Connection,
-    /// 与其他集群对等节点之间的网络连接
-    peer_conn: cluster::Connection,
+    /// 当前客户端或对等节点连接对应的底层网络连接
+    conn: network::Connection,
 
     /// 给 router 发送消息的管道
     router_tx: Sender<Incoming>,

@@ -3,8 +3,7 @@ use std::{collections::HashSet, time::Duration};
 use tokio::sync::mpsc::Sender;
 
 use crate::{
-    cluster::Storage,
-    packet::{publish::Publish, subscribe::Subscribe},
+    cluster::Storage, network::{Publish, Subscribe},
 };
 
 use super::{ConnectionId, Outcoming};

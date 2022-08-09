@@ -4,6 +4,17 @@
 * 持久化：会话，配置，路由表
 
 ## 集群层
+
+```
+              |-------------------|
+deviceA <---> | NodeA <---> NodeB | <---> deviceB
+              |-------------------|
+```
+* 对于设备 A，B 来说，集群内部 NodeA 和 NodeB 之间的通信交互是透明的
+* 设备A 发送一个 PUBLISH 消息的过程
+    * PUBLISH: deviceA -> NodeA -> NodeB -> deviceB
+    * PUBACK: deviceB -> NodeB -> NodeA -> deviceA
+
 * Manager
     * 分别提供单机，raft，etcd集群管理器
     * 维护节点信息
@@ -67,3 +78,6 @@ https://www.emqx.io/docs/zh/v5.0/design/design.html#%E7%B3%BB%E7%BB%9F%E6%9E%B6%
 2. 客户端连接连接到新的节点
     * 如果 session 存在，则新节点加载 session 的信息，触发路由表更新操作
     * 如果 session 不存在或不可用，则当 client 重新订阅时，触发路由表更新操作
+
+## TODO
+* 自动订阅：设备连接后，集群自动为其订阅默认的主题

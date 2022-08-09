@@ -5,9 +5,9 @@
 //! * 少量节点：使用 raft 算法
 //! * 多节点：借助第三方一致性存储，如 Etcdmod standalone;
 
-pub(crate) use connection::Connection;
+// pub(crate) use connection::Connection;
 pub(crate) use storage::Storage;
 
-mod connection;
+mod dispatcher;
 mod manager;
 mod storage;

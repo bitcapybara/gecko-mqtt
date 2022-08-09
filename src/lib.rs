@@ -11,7 +11,6 @@ mod cluster;
 pub mod config;
 pub mod error;
 mod network;
-pub mod packet;
 mod protocol;
 
 /// mqtt事件发生时的回调，由用户实现
