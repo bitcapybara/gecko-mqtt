@@ -10,17 +10,23 @@
 ## 逻辑流程
 
 ### CONNECT
+```
 clientA -----> router -----> new session (删除旧会话，更新路由表)
                              move session (迁移会话，更新路由表)
+```
 
 ### SUBSCRIBE
+```
 clientA -----> router -----> sessionA (更新会话信息)
+```
 
 ### PUBLISH
+```
 clientA -----> router -----> sessionA (存储消息)
                       -----> sessionB (发送给订阅方)
                       -----> rpc node -----> router -----> sessionC -----> clientC (发送给订阅方)
                                                            sessionB -----> clientB (发送给订阅方)
+```
 
 ## 集群层
 
