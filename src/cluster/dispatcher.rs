@@ -2,10 +2,7 @@
 
 use std::collections::HashMap;
 
-
-struct GrpcChannel {
-
-}
+struct GrpcChannel {}
 
 /// 借助于集群管理器，维护对所有其他对等节点的 tcp 连接
 pub(crate) struct Dispatcher {

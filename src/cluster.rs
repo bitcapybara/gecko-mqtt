@@ -6,6 +6,7 @@
 //! * 多节点：借助第三方一致性存储，如 Etcdmod standalone;
 
 // pub(crate) use connection::Connection;
+pub(crate) use dispatcher::Dispatcher;
 pub(crate) use storage::Storage;
 
 mod dispatcher;

@@ -6,5 +6,5 @@ mod peer;
 
 pub(crate) enum Connection {
     Client(ClientConnection),
-    Peer(PeerConnection)
+    Peer(PeerConnection),
 }

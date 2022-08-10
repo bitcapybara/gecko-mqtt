@@ -1,11 +1,11 @@
 use bytes::BytesMut;
 
-use crate::error::Result;
+use super::{Error, PacketReadWriter};
 
 pub(crate) struct Connect {}
 
-impl Connect {
-    pub(crate) fn read_from(_stream: &mut BytesMut) -> Result<Self> {
+impl PacketReadWriter for Connect {
+    fn read_from(_stream: &mut BytesMut) -> Result<Self, Error> {
         todo!()
     }
 }

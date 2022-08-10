@@ -2,6 +2,10 @@
 
 * 连接 (Connection)、会话 (Session)、路由 (Router)、集群 (Cluster) 分层
 * 持久化：会话，配置，路由表
+* 节点宕机重启，路由表需要更新
+* 节点间连接方式，一条连接or两条连接
+* 客户端切换到另一个broker后，session数据也要迁移便于本地访问
+* **迁移session时，顺带进行路由表的更新，所以空session也要存储**
 
 ## 集群层
 
@@ -10,6 +14,7 @@
 deviceA <---> | NodeA <---> NodeB | <---> deviceB
               |-------------------|
 ```
+
 * 对于设备 A，B 来说，集群内部 NodeA 和 NodeB 之间的通信交互是透明的
 * 设备A 发送一个 PUBLISH 消息的过程
     * PUBLISH: deviceA -> NodeA -> NodeB -> deviceB
@@ -18,8 +23,9 @@ deviceA <---> | NodeA <---> NodeB | <---> deviceB
 * Manager
     * 分别提供单机，raft，etcd集群管理器
     * 维护节点信息
-* Connection
+* Dispatcher
     * 维护到所有其他节点的 grpc 连接
+    * 懒加载，需要用的时候，再建立连接
     * 用于节点间同步信息
 * Storage
     * 强一致性存储集群数据
@@ -37,12 +43,20 @@ deviceA <---> | NodeA <---> NodeB | <---> deviceB
     * **单元测试**
 
 ## 会话层
-* Session 
-    * 如果 clea_session = true，会话仅保存到内存即可
-    * 如果 clea_session = false，需要集群全局持久化，保存客户端订阅信息
+* 使用嵌入式数据库或内存进行本地缓存 + 集群存储
+* clean_session=1 的空 session 也要存储
+* 客户端从 A 节点漂移到 B 节点后
+    1. B 节点查询得到 session 之前在 A 节点
+    2. 将 session 迁移至自己名下
+    3. 根据session的订阅信息更新路由表
+
+### 会话存储
+* 一个session和客户端一一对应，一个session只有一个节点，一个节点有多个session
 * 处理 Qos0/1/2 消息接收与下发
+* 保存客户端订阅信息
 * 消息超时重传与离线消息保存
 * 通过飞行窗口（Inflight Window）实现下发消息吞吐控制与顺序保证
+* 如果数据量大，考虑使用本地**嵌入式数据库**存储数据
 
 ## 协议层
 * 依赖网络层 Connection 进行数据读写
@@ -81,3 +95,9 @@ https://www.emqx.io/docs/zh/v5.0/design/design.html#%E7%B3%BB%E7%BB%9F%E6%9E%B6%
 
 ## TODO
 * 自动订阅：设备连接后，集群自动为其订阅默认的主题
+
+## 表设计
+
+* client_id <-> session_id
+* session_id <-> node_id
+* session_id <-> session struct

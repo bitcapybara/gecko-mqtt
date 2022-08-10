@@ -1,7 +1,5 @@
 use bytes::{Buf, BytesMut};
 
-use crate::error::Result;
-
 pub(crate) use connect::Connect;
 pub(crate) use publish::Publish;
 pub(crate) use subscribe::Subscribe;
@@ -11,13 +9,19 @@ mod pingreq;
 pub(crate) mod publish;
 pub(crate) mod subscribe;
 
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum Error {
+    #[error("Invalid packet type: {0}")]
+    InvalidPacketType(u8),
+}
+
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PacketType {
     Connect = 1,
     ConnAck,
     Publish,
-    PUbAck,
+    PubAck,
     PubRel,
     PubComp,
     Subscribe,
@@ -44,6 +48,10 @@ pub(crate) enum QoS {
     ExactlyOnce,
 }
 
+trait PacketReadWriter: Sized {
+    fn read_from(stream: &mut BytesMut) -> Result<Self, Error>;
+}
+
 struct FixedHeader {
     /// 固定头的第一个字节，包含报文类型和flags
     byte1: u8,
@@ -54,7 +62,30 @@ struct FixedHeader {
 }
 
 impl FixedHeader {
-    fn read_from(stream: &mut BytesMut) -> Result<Self> {
+    #[inline]
+    fn packet_type(&self) -> Result<PacketType, Error> {
+        let num = self.byte1 >> 4;
+        match num {
+            1 => Ok(PacketType::Connect),
+            2 => Ok(PacketType::ConnAck),
+            3 => Ok(PacketType::Publish),
+            4 => Ok(PacketType::PubAck),
+            5 => Ok(PacketType::PubRel),
+            6 => Ok(PacketType::PubComp),
+            7 => Ok(PacketType::Subscribe),
+            8 => Ok(PacketType::SubAck),
+            9 => Ok(PacketType::Unsubscribe),
+            10 => Ok(PacketType::UnsubAck),
+            11 => Ok(PacketType::PingReq),
+            12 => Ok(PacketType::PingResp),
+            13 => Ok(PacketType::Disconnect),
+            n => Err(Error::InvalidPacketType(n)),
+        }
+    }
+}
+
+impl PacketReadWriter for FixedHeader {
+    fn read_from(stream: &mut BytesMut) -> Result<Self, Error> {
         let stream_len = stream.len();
         if stream_len < 2 {
             // return err 字节不足
@@ -101,10 +132,6 @@ impl FixedHeader {
             remaining_len,
         })
     }
-
-    fn packet_type(&self) -> PacketType {
-        todo!()
-    }
 }
 
 pub(crate) enum Packet {
@@ -124,10 +151,10 @@ pub(crate) enum Packet {
 }
 
 impl Packet {
-    fn read_from(stream: &mut BytesMut) -> Result<Self> {
+    fn read_from(stream: &mut BytesMut) -> Result<Self, Error> {
         let fixed_header: FixedHeader = FixedHeader::read_from(stream)?;
 
-        let packet_type = fixed_header.packet_type();
+        let packet_type = fixed_header.packet_type()?;
 
         // 没有负载的 packet 类型
         if fixed_header.remaining_len == 0 {
