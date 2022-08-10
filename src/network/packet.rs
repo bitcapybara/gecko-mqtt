@@ -4,10 +4,20 @@ pub(crate) use connect::Connect;
 pub(crate) use publish::Publish;
 pub(crate) use subscribe::Subscribe;
 
+mod connack;
 mod connect;
 mod pingreq;
+mod puback;
+mod pubcomp;
 pub(crate) mod publish;
+mod pubrec;
+mod pubrel;
 pub(crate) mod subscribe;
+mod suback;
+mod unsubscribe;
+mod unsuback;
+mod pingresp;
+mod disconnect;
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum Error {
@@ -22,6 +32,7 @@ enum PacketType {
     ConnAck,
     Publish,
     PubAck,
+    PubRec,
     PubRel,
     PubComp,
     Subscribe,
@@ -33,7 +44,7 @@ enum PacketType {
     Disconnect,
 }
 
-enum Version {
+pub enum Protocol {
     V311,
     V5,
 }
@@ -42,14 +53,10 @@ enum Version {
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, serde::Serialize, serde::Deserialize)]
 #[allow(clippy::enum_variant_names)]
-pub(crate) enum QoS {
+pub enum QoS {
     AtMostOnce = 1,
     AtLeastOnce,
     ExactlyOnce,
-}
-
-trait PacketReadWriter: Sized {
-    fn read_from(stream: &mut BytesMut) -> Result<Self, Error>;
 }
 
 struct FixedHeader {
@@ -70,21 +77,22 @@ impl FixedHeader {
             2 => Ok(PacketType::ConnAck),
             3 => Ok(PacketType::Publish),
             4 => Ok(PacketType::PubAck),
-            5 => Ok(PacketType::PubRel),
-            6 => Ok(PacketType::PubComp),
-            7 => Ok(PacketType::Subscribe),
-            8 => Ok(PacketType::SubAck),
-            9 => Ok(PacketType::Unsubscribe),
-            10 => Ok(PacketType::UnsubAck),
-            11 => Ok(PacketType::PingReq),
-            12 => Ok(PacketType::PingResp),
-            13 => Ok(PacketType::Disconnect),
+            5 => Ok(PacketType::PubRec),
+            6 => Ok(PacketType::PubRel),
+            7 => Ok(PacketType::PubComp),
+            8 => Ok(PacketType::Subscribe),
+            9 => Ok(PacketType::SubAck),
+            10 => Ok(PacketType::Unsubscribe),
+            11 => Ok(PacketType::UnsubAck),
+            12 => Ok(PacketType::PingReq),
+            13 => Ok(PacketType::PingResp),
+            14 => Ok(PacketType::Disconnect),
             n => Err(Error::InvalidPacketType(n)),
         }
     }
 }
 
-impl PacketReadWriter for FixedHeader {
+impl FixedHeader {
     fn read_from(stream: &mut BytesMut) -> Result<Self, Error> {
         let stream_len = stream.len();
         if stream_len < 2 {

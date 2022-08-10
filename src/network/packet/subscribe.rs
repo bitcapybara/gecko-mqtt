@@ -1,17 +1,19 @@
 use bytes::BytesMut;
 
-use super::Error;
+use super::{Error, QoS};
 
-#[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash)]
-pub(crate) struct Subscribe {
-    /// 订阅的 topic
-    topic: String,
-    /// 订阅的服务质量
-    qos: u8,
+pub struct Subscribe {
+    pub pkid: u16,
+    pub filters: Vec<TopicFilter>,
 }
 
 impl Subscribe {
-    pub(crate) fn read_from(_stream: &mut BytesMut) -> Result<Self, Error> {
+    fn read_from(_stream: &mut BytesMut) -> Result<Self, Error> {
         todo!()
     }
+}
+
+pub struct TopicFilter {
+    pub filter: String,
+    pub qos: QoS,
 }
