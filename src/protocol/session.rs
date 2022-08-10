@@ -2,10 +2,7 @@ use std::{collections::HashSet, time::Duration};
 
 use tokio::sync::mpsc::Sender;
 
-use crate::{
-    cluster::Storage,
-    network::{Publish, Subscribe},
-};
+use crate::{cluster::Storage, network::v311};
 
 use super::{ConnectionId, Outcoming};
 
@@ -19,9 +16,9 @@ pub struct SessionState {
     /// clean session（持久化）,immutable
     clean_session: bool,
     /// 订阅的主题 topic,qos（持久化）
-    subscribes: HashSet<Subscribe>,
+    subscribes: HashSet<v311::Subscribe>,
     /// 保存发送给客户端但是还没有删除的消息（QoS1, QoS2）(持久化)
-    messages: Vec<Publish>,
+    messages: Vec<v311::Publish>,
     /// 设备断开连接的时间戳，毫秒
     /// 如果存在表明设备断开了连接，开始计时直到会话过期删除
     /// TODO 考虑 broker 崩溃重启的情况

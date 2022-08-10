@@ -1,6 +1,6 @@
 use bytes::{Bytes, BytesMut};
 
-use super::{Error, Protocol, QoS};
+use crate::network::packet::{Error, Protocol, QoS};
 
 pub struct Connect {
     /// 协议版本

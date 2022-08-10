@@ -1,4 +1,4 @@
-use super::QoS;
+use crate::network::packet::QoS;
 
 pub struct SubAck {
     /// 包 id

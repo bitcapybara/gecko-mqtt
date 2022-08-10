@@ -1,6 +1,6 @@
 use bytes::BytesMut;
 
-use super::{Error, QoS};
+use crate::network::packet::{Error, QoS};
 
 pub struct Subscribe {
     pub pkid: u16,

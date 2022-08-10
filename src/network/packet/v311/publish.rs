@@ -1,6 +1,6 @@
 use bytes::{Bytes, BytesMut};
 
-use super::{Error, QoS};
+use crate::network::packet::{Error, QoS};
 
 #[derive(Debug)]
 pub struct Publish {
