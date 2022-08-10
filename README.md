@@ -7,6 +7,21 @@
 * 客户端切换到另一个broker后，session数据也要迁移便于本地访问
 * **迁移session时，顺带进行路由表的更新，所以空session也要存储**
 
+## 逻辑流程
+
+### CONNECT
+clientA -----> router -----> new session (删除旧会话，更新路由表)
+                             move session (迁移会话，更新路由表)
+
+### SUBSCRIBE
+clientA -----> router -----> sessionA (更新会话信息)
+
+### PUBLISH
+clientA -----> router -----> sessionA (存储消息)
+                      -----> sessionB (发送给订阅方)
+                      -----> rpc node -----> router -----> sessionC -----> clientC (发送给订阅方)
+                                                           sessionB -----> clientB (发送给订阅方)
+
 ## 集群层
 
 ```
