@@ -1,4 +1,4 @@
-use bytes::{Buf, Bytes, BytesMut};
+use bytes::{Buf, Bytes};
 
 pub mod v4;
 pub mod v5;
@@ -21,6 +21,8 @@ pub enum Error {
     IncorrectPacketFormat,
     #[error("Invalid QoS: {0}")]
     InvalidQoS(u8),
+    #[error("Payload required")]
+    PayloadRequired,
 }
 
 pub enum Protocol {
@@ -51,7 +53,7 @@ impl TryFrom<u8> for QoS {
     }
 }
 
-fn read_bytes(stream: &mut BytesMut) -> Result<Bytes, Error> {
+fn read_bytes(stream: &mut Bytes) -> Result<Bytes, Error> {
     let len = read_u16(stream)? as usize;
 
     if len > stream.len() {
@@ -64,7 +66,7 @@ fn read_bytes(stream: &mut BytesMut) -> Result<Bytes, Error> {
     Ok(Bytes::from(bs))
 }
 
-fn read_string(stream: &mut BytesMut) -> Result<String, Error> {
+fn read_string(stream: &mut Bytes) -> Result<String, Error> {
     let s = read_bytes(stream)?;
     match String::from_utf8(s.to_vec()) {
         Ok(v) => Ok(v),
@@ -72,7 +74,7 @@ fn read_string(stream: &mut BytesMut) -> Result<String, Error> {
     }
 }
 
-fn read_u16(stream: &mut BytesMut) -> Result<u16, Error> {
+fn read_u16(stream: &mut Bytes) -> Result<u16, Error> {
     if stream.is_empty() {
         return Err(Error::MalformedPacket);
     }
@@ -83,7 +85,7 @@ fn read_u16(stream: &mut BytesMut) -> Result<u16, Error> {
     Ok(stream.get_u16())
 }
 
-fn read_u8(stream: &mut BytesMut) -> Result<u8, Error> {
+fn read_u8(stream: &mut Bytes) -> Result<u8, Error> {
     if stream.is_empty() {
         return Err(Error::MalformedPacket);
     }

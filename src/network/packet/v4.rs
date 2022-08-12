@@ -1,6 +1,6 @@
 //! 3.1.1 协议版本报文
 
-use bytes::{Buf, BytesMut};
+use bytes::{Buf, Bytes, BytesMut};
 
 pub use connack::*;
 pub use connect::*;
@@ -87,11 +87,10 @@ impl FixedHeader {
 }
 
 impl FixedHeader {
-    fn read_from(stream: &mut BytesMut) -> Result<Self, Error> {
+    fn read_from(stream: &mut Bytes) -> Result<Self, Error> {
         let stream_len = stream.len();
         if stream_len < 2 {
-            // return err 字节不足
-            todo!()
+            return Err(Error::InsufficientBytes(2-stream_len))
         }
         // 第一个字节
         let byte1 = stream.get_u8();
@@ -118,14 +117,12 @@ impl FixedHeader {
 
             // 剩余长度字节最多四个字节（0，7，14，21）
             if shift > 21 {
-                // err
-                todo!()
+                return Err(Error::MalformedPacket)
             }
         }
 
         if !done {
-            // err
-            todo!()
+            return Err(Error::InsufficientBytes(1))
         }
 
         Ok(Self {
@@ -153,8 +150,8 @@ pub(crate) enum Packet {
 }
 
 impl Packet {
-    fn read_from(stream: &mut BytesMut) -> Result<Self, Error> {
-        let fixed_header: FixedHeader = FixedHeader::read_from(stream)?;
+    fn read_from(mut stream: Bytes) -> Result<Self, Error> {
+        let fixed_header: FixedHeader = FixedHeader::read_from(&mut stream)?;
 
         let packet_type = fixed_header.packet_type()?;
 
@@ -162,13 +159,26 @@ impl Packet {
         if fixed_header.remaining_len == 0 {
             return match packet_type {
                 PacketType::PingReq => Ok(Packet::PingReq),
-                _ => todo!(),
+                PacketType::PingResp => Ok(Packet::PingResp),
+                _ => Err(Error::PayloadRequired),
             };
         }
 
         let packet = match packet_type {
             PacketType::Connect => Packet::Connect(Connect::read_from(stream)?),
-            _ => todo!(),
+            PacketType::ConnAck => todo!(),
+            PacketType::Publish => todo!(),
+            PacketType::PubAck => todo!(),
+            PacketType::PubRec => todo!(),
+            PacketType::PubRel => todo!(),
+            PacketType::PubComp => todo!(),
+            PacketType::Subscribe => todo!(),
+            PacketType::SubAck => todo!(),
+            PacketType::Unsubscribe => todo!(),
+            PacketType::UnsubAck => todo!(),
+            PacketType::PingReq => todo!(),
+            PacketType::PingResp => todo!(),
+            PacketType::Disconnect => todo!(),
         };
 
         Ok(packet)

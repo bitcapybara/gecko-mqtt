@@ -1,4 +1,4 @@
-use bytes::{Bytes, BytesMut};
+use bytes::Bytes;
 
 use crate::network::packet::{self, Error, Protocol, QoS};
 
@@ -18,10 +18,10 @@ pub struct Connect {
 }
 
 impl Connect {
-    pub(crate) fn read_from(stream: &mut BytesMut) -> Result<Self, Error> {
+    pub(crate) fn read_from(mut stream: Bytes) -> Result<Self, Error> {
         // 可变报头
-        let protocol_name = packet::read_string(stream)?;
-        let protocol_level = packet::read_u8(stream)?;
+        let protocol_name = packet::read_string(&mut stream)?;
+        let protocol_level = packet::read_u8(&mut stream)?;
         if protocol_name != "MQTT" {
             return Err(Error::InvalidProtocol);
         }
@@ -31,13 +31,13 @@ impl Connect {
             num => return Err(Error::InvalidProtocolLevel(num)),
         };
 
-        let connect_flags = packet::read_u8(stream)?;
+        let connect_flags = packet::read_u8(&mut stream)?;
         let clean_session = (connect_flags & 0b10) != 0;
-        let keep_alive = packet::read_u16(stream)?;
+        let keep_alive = packet::read_u16(&mut stream)?;
 
-        let client_id = packet::read_string(stream)?;
-        let last_will = LastWill::read(connect_flags, stream)?;
-        let login = Login::read(connect_flags, stream)?;
+        let client_id = packet::read_string(&mut stream)?;
+        let last_will = LastWill::read(connect_flags, &mut stream)?;
+        let login = Login::read(connect_flags, &mut stream)?;
 
         Ok(Connect {
             protocol,
@@ -63,7 +63,7 @@ pub struct LastWill {
 }
 
 impl LastWill {
-    fn read(connect_flags: u8, stream: &mut BytesMut) -> Result<Option<LastWill>, Error> {
+    fn read(connect_flags: u8, stream: &mut Bytes) -> Result<Option<LastWill>, Error> {
         let last_will = match connect_flags & 0b100 {
             0 if (connect_flags & 0b0011_1000) != 0 => {
                 return Err(Error::IncorrectPacketFormat);
@@ -90,7 +90,7 @@ pub struct Login {
 }
 
 impl Login {
-    fn read(connect_flags: u8, stream: &mut BytesMut) -> Result<Option<Login>, Error> {
+    fn read(connect_flags: u8, stream: &mut Bytes) -> Result<Option<Login>, Error> {
         let username = match connect_flags & 0b1000_0000 {
             0 => None,
             _ => Some(packet::read_string(stream)?),
