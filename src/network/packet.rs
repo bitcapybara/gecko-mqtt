@@ -26,7 +26,9 @@ pub enum Error {
 }
 
 pub enum Protocol {
+    /// v3.1.1
     V4,
+    /// v5
     V5,
 }
 
@@ -35,7 +37,7 @@ pub enum Protocol {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
 #[allow(clippy::enum_variant_names)]
 pub enum QoS {
-    AtMostOnce = 1,
+    AtMostOnce = 0,
     AtLeastOnce,
     ExactlyOnce,
 }
@@ -53,17 +55,16 @@ impl TryFrom<u8> for QoS {
     }
 }
 
+/// 读取多个字节
 fn read_bytes(stream: &mut Bytes) -> Result<Bytes, Error> {
+    // 后续可取出的字节的长度
     let len = read_u16(stream)? as usize;
 
     if len > stream.len() {
         return Err(Error::MalformedPacket);
     }
 
-    let bs = stream.get(0..len).unwrap().to_vec();
-    stream.advance(len);
-
-    Ok(Bytes::from(bs))
+    Ok(stream.split_to(len))
 }
 
 fn read_string(stream: &mut Bytes) -> Result<String, Error> {
