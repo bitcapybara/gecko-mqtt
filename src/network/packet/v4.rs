@@ -1,6 +1,6 @@
 //! 3.1.1 协议版本报文
 
-use bytes::{Buf, Bytes, BytesMut};
+use bytes::{Buf, Bytes};
 
 pub use connack::*;
 pub use connect::*;
