@@ -1,7 +1,7 @@
 use bytes::{BufMut, BytesMut};
 use tokio::net::TcpStream;
 
-use crate::{error::Result, network::packet::v311::Packet};
+use crate::{error::Result, network::packet::v4::Packet};
 
 /// 设备或对等节点与服务器之间的连接
 /// 单纯的 tcp 读写管理
