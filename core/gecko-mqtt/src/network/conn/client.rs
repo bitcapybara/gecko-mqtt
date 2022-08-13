@@ -26,6 +26,15 @@ pub(crate) struct ClientConnection {
 }
 
 impl ClientConnection {
+    pub(crate) fn new(stream: TcpStream) -> Self {
+        Self {
+            stream,
+            read: BytesMut::new(),
+            write: BytesMut::new(),
+            packets: None,
+        }
+    }
+
     /// 从已读取的缓冲区中获取 packet 存入列表
     pub(crate) async fn read_packets(&mut self) -> Result<Vec<Packet>, Error> {
         todo!()

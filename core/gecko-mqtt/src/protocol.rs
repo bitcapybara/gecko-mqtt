@@ -3,7 +3,7 @@
 
 use tokio::{
     select,
-    sync::mpsc::{self, Receiver, Sender, error::SendError},
+    sync::mpsc::{self, error::SendError, Receiver, Sender},
 };
 
 use crate::network::{
@@ -11,6 +11,7 @@ use crate::network::{
     v4::{connack, ConnAck, Connect, Packet, PacketType},
 };
 
+pub(crate) use router::Router;
 pub use session::SessionState;
 
 mod router;
@@ -29,7 +30,7 @@ pub(crate) enum Error {
     #[error("Unexpected incoming message: {0:?}")]
     UnexpectedImcoming(PacketType),
     #[error("Send message to router error: {0}")]
-    Send(#[from] SendError<Incoming>)
+    Send(#[from] SendError<Incoming>),
 }
 
 /// 发送给 router 的消息
@@ -71,10 +72,11 @@ impl ConnectionEventLoop {
         let (conn_tx, mut conn_rx) = mpsc::channel(1000);
         match conn {
             network::Connection::Client(mut cc) => {
+                // TODO 超时处理
                 // 第一个报文，必须是 connect 报文
                 let connect = cc.read_connect().await?;
+                // TODO 可以在这里对用户名密码不正确的连接进行拦截，不需要发送到 router
                 // 发送给 router 处理
-
                 router_tx
                     .send(Incoming::Connect {
                         packet: connect,
@@ -120,7 +122,10 @@ impl ConnectionEventLoop {
         Ok(())
     }
 
-    async fn start_client_conn(&mut self, mut conn: network::ClientConnection) -> Result<(), Error> {
+    async fn start_client_conn(
+        &mut self,
+        mut conn: network::ClientConnection,
+    ) -> Result<(), Error> {
         loop {
             select! {
                 // 从网络层读数据
@@ -139,7 +144,7 @@ impl ConnectionEventLoop {
                         },
                         None => todo!(),
                     }
-                    
+
                 }
             }
         }

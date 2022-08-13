@@ -212,7 +212,7 @@ impl Packet {
             Packet::ConnAck(ack) => ack.write(stream),
             Packet::PingResp => todo!(),
             Packet::Disconnect => todo!(),
-            _ => todo!()
+            _ => todo!(),
         }
     }
 
@@ -234,6 +234,4 @@ impl Packet {
             Packet::Disconnect => PacketType::Disconnect,
         }
     }
-
-    
 }

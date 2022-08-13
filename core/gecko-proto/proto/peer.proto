@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package peer;
+
+service GeckoPeerService {
+    rpc TransferPacket (TransferPacketRequest) returns (TransferPacketResponse);
+}
+
+message TransferPacketRequest {
+    uint64 node_id = 1;
+    uint64 request_id = 2;
+}
+
+message TransferPacketResponse {
+    uint64 request_id = 1;
+}

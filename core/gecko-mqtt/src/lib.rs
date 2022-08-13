@@ -13,7 +13,7 @@ mod protocol;
 
 /// mqtt事件发生时的回调，由用户实现
 #[async_trait]
-pub trait Hook {
+pub trait Hook: Send + Sync + 'static {
     type Error;
 
     /// 客户端认证
