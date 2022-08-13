@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package peer;
 
-service GeckoPeerService {
+service GeckoPeer {
     rpc TransferPacket (TransferPacketRequest) returns (TransferPacketResponse);
 }
 

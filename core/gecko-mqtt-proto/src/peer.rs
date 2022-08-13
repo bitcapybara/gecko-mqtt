@@ -11,15 +11,15 @@ pub struct TransferPacketResponse {
     pub request_id: u64,
 }
 /// Generated client implementations.
-pub mod gecko_peer_service_client {
+pub mod gecko_peer_client {
     #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
     use tonic::codegen::*;
     use tonic::codegen::http::Uri;
     #[derive(Debug, Clone)]
-    pub struct GeckoPeerServiceClient<T> {
+    pub struct GeckoPeerClient<T> {
         inner: tonic::client::Grpc<T>,
     }
-    impl GeckoPeerServiceClient<tonic::transport::Channel> {
+    impl GeckoPeerClient<tonic::transport::Channel> {
         /// Attempt to create a new client by connecting to a given endpoint.
         pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
         where
@@ -30,7 +30,7 @@ pub mod gecko_peer_service_client {
             Ok(Self::new(conn))
         }
     }
-    impl<T> GeckoPeerServiceClient<T>
+    impl<T> GeckoPeerClient<T>
     where
         T: tonic::client::GrpcService<tonic::body::BoxBody>,
         T::Error: Into<StdError>,
@@ -48,7 +48,7 @@ pub mod gecko_peer_service_client {
         pub fn with_interceptor<F>(
             inner: T,
             interceptor: F,
-        ) -> GeckoPeerServiceClient<InterceptedService<T, F>>
+        ) -> GeckoPeerClient<InterceptedService<T, F>>
         where
             F: tonic::service::Interceptor,
             T::ResponseBody: Default,
@@ -62,7 +62,7 @@ pub mod gecko_peer_service_client {
                 http::Request<tonic::body::BoxBody>,
             >>::Error: Into<StdError> + Send + Sync,
         {
-            GeckoPeerServiceClient::new(InterceptedService::new(inner, interceptor))
+            GeckoPeerClient::new(InterceptedService::new(inner, interceptor))
         }
         /// Compress requests with the given encoding.
         ///
@@ -94,32 +94,32 @@ pub mod gecko_peer_service_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/peer.GeckoPeerService/TransferPacket",
+                "/peer.GeckoPeer/TransferPacket",
             );
             self.inner.unary(request.into_request(), path, codec).await
         }
     }
 }
 /// Generated server implementations.
-pub mod gecko_peer_service_server {
+pub mod gecko_peer_server {
     #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
     use tonic::codegen::*;
-    ///Generated trait containing gRPC methods that should be implemented for use with GeckoPeerServiceServer.
+    ///Generated trait containing gRPC methods that should be implemented for use with GeckoPeerServer.
     #[async_trait]
-    pub trait GeckoPeerService: Send + Sync + 'static {
+    pub trait GeckoPeer: Send + Sync + 'static {
         async fn transfer_packet(
             &self,
             request: tonic::Request<super::TransferPacketRequest>,
         ) -> Result<tonic::Response<super::TransferPacketResponse>, tonic::Status>;
     }
     #[derive(Debug)]
-    pub struct GeckoPeerServiceServer<T: GeckoPeerService> {
+    pub struct GeckoPeerServer<T: GeckoPeer> {
         inner: _Inner<T>,
         accept_compression_encodings: EnabledCompressionEncodings,
         send_compression_encodings: EnabledCompressionEncodings,
     }
     struct _Inner<T>(Arc<T>);
-    impl<T: GeckoPeerService> GeckoPeerServiceServer<T> {
+    impl<T: GeckoPeer> GeckoPeerServer<T> {
         pub fn new(inner: T) -> Self {
             Self::from_arc(Arc::new(inner))
         }
@@ -153,9 +153,9 @@ pub mod gecko_peer_service_server {
             self
         }
     }
-    impl<T, B> tonic::codegen::Service<http::Request<B>> for GeckoPeerServiceServer<T>
+    impl<T, B> tonic::codegen::Service<http::Request<B>> for GeckoPeerServer<T>
     where
-        T: GeckoPeerService,
+        T: GeckoPeer,
         B: Body + Send + 'static,
         B::Error: Into<StdError> + Send + 'static,
     {
@@ -171,11 +171,11 @@ pub mod gecko_peer_service_server {
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             let inner = self.inner.clone();
             match req.uri().path() {
-                "/peer.GeckoPeerService/TransferPacket" => {
+                "/peer.GeckoPeer/TransferPacket" => {
                     #[allow(non_camel_case_types)]
-                    struct TransferPacketSvc<T: GeckoPeerService>(pub Arc<T>);
+                    struct TransferPacketSvc<T: GeckoPeer>(pub Arc<T>);
                     impl<
-                        T: GeckoPeerService,
+                        T: GeckoPeer,
                     > tonic::server::UnaryService<super::TransferPacketRequest>
                     for TransferPacketSvc<T> {
                         type Response = super::TransferPacketResponse;
@@ -226,7 +226,7 @@ pub mod gecko_peer_service_server {
             }
         }
     }
-    impl<T: GeckoPeerService> Clone for GeckoPeerServiceServer<T> {
+    impl<T: GeckoPeer> Clone for GeckoPeerServer<T> {
         fn clone(&self) -> Self {
             let inner = self.inner.clone();
             Self {
@@ -236,7 +236,7 @@ pub mod gecko_peer_service_server {
             }
         }
     }
-    impl<T: GeckoPeerService> Clone for _Inner<T> {
+    impl<T: GeckoPeer> Clone for _Inner<T> {
         fn clone(&self) -> Self {
             Self(self.0.clone())
         }
@@ -246,7 +246,7 @@ pub mod gecko_peer_service_server {
             write!(f, "{:?}", self.0)
         }
     }
-    impl<T: GeckoPeerService> tonic::server::NamedService for GeckoPeerServiceServer<T> {
-        const NAME: &'static str = "peer.GeckoPeerService";
+    impl<T: GeckoPeer> tonic::server::NamedService for GeckoPeerServer<T> {
+        const NAME: &'static str = "peer.GeckoPeer";
     }
 }

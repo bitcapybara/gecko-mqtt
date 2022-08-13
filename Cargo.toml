@@ -1,5 +1,5 @@
 [workspace]
 members = [
     "core/gecko-mqtt",
-    "core/gecko-proto"
+    "core/gecko-mqtt-proto"
 ]
