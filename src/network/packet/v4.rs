@@ -38,7 +38,7 @@ pub mod unsubscribe;
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum PacketType {
+pub enum PacketType {
     Connect = 1,
     ConnAck,
     Publish,
@@ -144,11 +144,12 @@ impl FixedHeader {
     }
 }
 
+#[derive(Debug)]
 pub(crate) enum Packet {
     Connect(Connect),
-    ConnAck,
+    ConnAck(ConnAck),
     Publish,
-    PUbAck,
+    PubAck,
     PubRel,
     PubComp,
     Subscribe,
@@ -161,7 +162,7 @@ pub(crate) enum Packet {
 }
 
 impl Packet {
-    fn read_from(stream: &mut BytesMut) -> Result<Self, Error> {
+    pub(crate) fn read_from(stream: &mut BytesMut) -> Result<Self, Error> {
         let fixed_header: FixedHeader = FixedHeader::read_from(stream.iter())?;
 
         // 根据固定头给出的长度信息，取出整个报文字节（包含报文头）
@@ -205,4 +206,34 @@ impl Packet {
 
         Ok(packet)
     }
+
+    pub(crate) fn write(&self, stream: &mut BytesMut) -> Result<(), Error> {
+        match self {
+            Packet::ConnAck(ack) => ack.write(stream),
+            Packet::PingResp => todo!(),
+            Packet::Disconnect => todo!(),
+            _ => todo!()
+        }
+    }
+
+    #[inline]
+    pub(crate) fn packet_type(&self) -> PacketType {
+        match self {
+            Packet::Connect(_) => PacketType::Connect,
+            Packet::ConnAck(_) => PacketType::ConnAck,
+            Packet::Publish => PacketType::Publish,
+            Packet::PubAck => PacketType::PubAck,
+            Packet::PubRel => PacketType::PubRel,
+            Packet::PubComp => PacketType::PubComp,
+            Packet::Subscribe => PacketType::Subscribe,
+            Packet::SubAck => PacketType::SubAck,
+            Packet::Unsubscribe => PacketType::Unsubscribe,
+            Packet::UnsubAck => PacketType::UnsubAck,
+            Packet::PingReq => PacketType::PingReq,
+            Packet::PingResp => PacketType::PingResp,
+            Packet::Disconnect => PacketType::Disconnect,
+        }
+    }
+
+    
 }

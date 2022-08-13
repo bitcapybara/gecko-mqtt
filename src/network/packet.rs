@@ -1,7 +1,9 @@
-use bytes::{Buf, Bytes};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 
 pub mod v4;
 pub mod v5;
+
+const PAYLOAD_MAX_LENGTH: usize = 268_435_455;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -23,8 +25,11 @@ pub enum Error {
     InvalidQoS(u8),
     #[error("Payload required")]
     PayloadRequired,
+    #[error("Payload too large")]
+    PayloadTooLarge,
 }
 
+#[derive(Debug)]
 pub enum Protocol {
     /// v3.1.1
     V4,
@@ -91,4 +96,28 @@ fn read_u8(stream: &mut Bytes) -> Result<u8, Error> {
         return Err(Error::MalformedPacket);
     }
     Ok(stream.get_u8())
+}
+
+fn write_remaining_length(stream: &mut BytesMut, len: usize) -> Result<usize, Error> {
+    if len > PAYLOAD_MAX_LENGTH {
+        return Err(Error::PayloadTooLarge);
+    }
+
+    let mut done = false;
+    let mut x = len;
+    let mut count = 0;
+
+    while !done {
+        let mut byte = (x % 128) as u8;
+        x /= 128;
+        if x > 0 {
+            byte |= 128;
+        }
+
+        stream.put_u8(byte);
+        count += 1;
+        done = x == 0;
+    }
+
+    Ok(count)
 }

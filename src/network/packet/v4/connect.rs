@@ -2,6 +2,7 @@ use bytes::Bytes;
 
 use crate::network::packet::{self, Error, Protocol, QoS};
 
+#[derive(Debug)]
 pub struct Connect {
     /// 协议版本
     pub protocol: Protocol,
@@ -51,6 +52,7 @@ impl Connect {
 }
 
 /// 遗嘱设置
+#[derive(Debug)]
 pub struct LastWill {
     /// 遗嘱发送的目标主题
     pub topic: String,
@@ -82,6 +84,7 @@ impl LastWill {
 }
 
 /// 登录凭证
+#[derive(Debug)]
 pub struct Login {
     /// 用户名
     pub username: String,

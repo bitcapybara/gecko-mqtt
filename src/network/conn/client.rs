@@ -1,7 +1,13 @@
 use bytes::{BufMut, BytesMut};
-use tokio::net::TcpStream;
+use packet::v4::ConnAck;
+use tokio::{io::AsyncWriteExt, net::TcpStream};
 
-use crate::{error::Result, network::packet::v4::Packet};
+use crate::network::{
+    packet::{self, v4::Packet},
+    v4::Connect,
+};
+
+use super::Error;
 
 /// 设备或对等节点与服务器之间的连接
 /// 单纯的 tcp 读写管理
@@ -20,9 +26,52 @@ pub(crate) struct ClientConnection {
 }
 
 impl ClientConnection {
+    /// 从已读取的缓冲区中获取 packet 存入列表
+    pub(crate) async fn read_packets(&mut self) -> Result<Vec<Packet>, Error> {
+        todo!()
+    }
+
+    /// 读取一个 packet
+    async fn read_packet(&mut self) -> Result<Packet, Error> {
+        loop {
+            let required = match packet::v4::Packet::read_from(&mut self.read) {
+                Ok(packet) => return Ok(packet),
+                Err(packet::Error::InsufficientBytes(n)) => n,
+                Err(e) => return Err(Error::Packet(e)),
+            };
+
+            // 数据不足，读取更多数据
+            self.read_bytes(required).await?;
+        }
+    }
+
+    pub(crate) async fn read_connect(&mut self) -> Result<Connect, Error> {
+        let packet = self.read_packet().await?;
+
+        match packet {
+            Packet::Connect(connect) => Ok(connect),
+            _ => Err(Error::FirstPacketNotConnect),
+        }
+    }
+
+    pub(crate) async fn write_connack(&mut self, connack: ConnAck) -> Result<(), Error> {
+        connack.write(&mut self.write)?;
+        self.flush().await?;
+        Ok(())
+    }
+
+    pub(crate) async fn write_packet(&mut self, packet: Packet) -> Result<(), Error> {
+        Ok(packet.write(&mut self.write)?)
+    }
+
+    /// 从 socket 读取更多数据
+    async fn read(&mut self) -> Result<(), Error> {
+        todo!()
+    }
+
     /// 等待从 socket 读出至少所需长度的数据，放入缓冲区
     /// 如果读不到指定长度的数据，返回错误
-    async fn read_bytes(_required: usize) -> Result<()> {
+    async fn read_bytes(&mut self, _required: usize) -> Result<(), Error> {
         // AsyncReadExt socket.read()
         // let mut total_read = 0;
         // loop {
@@ -51,7 +100,7 @@ impl ClientConnection {
 
     /// 只从缓冲区读取指定长度的数据
     /// 如果缓冲区数据不足，返回 Insufficient 错误
-    async fn read_u8(&self) -> Result<u8> {
+    async fn read_u8(&self) -> Result<u8, Error> {
         // 先从缓冲区读取，缓冲区不够，再从 socket 读取
         // loop {
         //     if self.read.len() >= 1 {
@@ -64,19 +113,20 @@ impl ClientConnection {
     }
 
     /// 把数据写入缓冲区
-    async fn write_u8(&mut self, data: u8) -> Result<()> {
+    async fn write_u8(&mut self, data: u8) -> Result<(), Error> {
         self.write.reserve(1);
         self.write.put_u8(data);
         todo!()
     }
 
     /// 协议层处理完一个或多个请求后，主动调用此方法
-    async fn flush(&self) -> Result<()> {
-        todo!()
-    }
+    async fn flush(&mut self) -> Result<(), Error> {
+        if self.write.is_empty() {
+            return Ok(());
+        }
 
-    /// 从已读取的缓冲区中获取 packet 存入列表
-    pub(crate) async fn read_packets(&mut self) -> Result<Vec<Packet>> {
-        todo!()
+        self.stream.write_all(&self.write).await?;
+        self.write.clear();
+        Ok(())
     }
 }

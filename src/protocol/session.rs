@@ -4,7 +4,7 @@ use tokio::sync::mpsc::Sender;
 
 use crate::{cluster::Storage, network::v4};
 
-use super::{ConnectionId, Outcoming};
+use super::{ConnectionId, Outgoing};
 
 /// session 会话
 /// 每个客户端必定对应一个会话
@@ -38,7 +38,7 @@ struct Session {
     state: SessionState,
 
     /// 发送给客户端的消息
-    conn_tx: Sender<Outcoming>,
+    conn_tx: Sender<Outgoing>,
     /// 持久化存储
     persist: Storage,
 }

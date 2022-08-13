@@ -2,8 +2,6 @@
 
 //! 一个 mqtt 服务端库，用户可以使用此库构建自己的 mqtt broker
 
-use std::result::Result;
-
 use async_trait::async_trait;
 
 pub mod broker;
