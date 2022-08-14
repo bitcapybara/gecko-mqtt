@@ -75,7 +75,6 @@ impl ConnectionEventLoop {
                 // TODO 超时处理
                 // 第一个报文，必须是 connect 报文
                 let connect = cc.read_connect().await?;
-                // TODO 可以在这里对用户名密码不正确的连接进行拦截，不需要发送到 router
                 // 发送给 router 处理
                 router_tx
                     .send(Incoming::Connect {
