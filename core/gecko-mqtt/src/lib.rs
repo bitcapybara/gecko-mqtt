@@ -10,6 +10,7 @@ pub mod config;
 pub mod error;
 mod network;
 mod protocol;
+mod server;
 
 /// mqtt事件发生时的回调，由用户实现
 #[async_trait]

@@ -3,8 +3,9 @@ use tokio::{net::TcpListener, sync::mpsc};
 
 use crate::{
     error::Result,
-    network::{self, ClientConnection},
+    network::{self, ClientConnection, PeerConnection},
     protocol::{ConnectionEventLoop, Router},
+    server::PeerServer,
     Hook,
 };
 
@@ -35,7 +36,27 @@ impl Broker {
             }
         });
 
-        // TODO 开启 grpc server 和 PeerConnection 事件循环
+        // 开启 grpc peer server
+        let (peer_tx, peer_rx) = mpsc::channel(1000);
+        let grpc_addr = self.grpc_addr.parse().unwrap();
+        tokio::spawn(async move {
+            tonic::transport::Server::builder()
+                .add_service(PeerServer::new_server(peer_tx))
+                .serve(grpc_addr)
+                .await
+                .unwrap();
+        });
+
+        // 开启 peer conn 事件循环
+        let peer_router_tx = router_tx.clone();
+        tokio::spawn(async move {
+            let conn = PeerConnection::new(peer_rx);
+            if let Err(e) =
+                ConnectionEventLoop::start(network::Connection::Peer(conn), peer_router_tx).await
+            {
+                error!("eventloop on peer conn exit error: {0}", e)
+            }
+        });
 
         // 开启客户端连接监听
         let listener = TcpListener::bind(&self.tcp_addr).await.unwrap();
@@ -52,11 +73,11 @@ impl Broker {
             log::info!("new stream comming in: {}", addr);
 
             // 事件循环
-            let router_tx = router_tx.clone();
+            let client_router_tx = router_tx.clone();
             tokio::spawn(async move {
                 let conn = ClientConnection::new(stream);
                 if let Err(e) =
-                    ConnectionEventLoop::start(network::Connection::Client(conn), router_tx.clone())
+                    ConnectionEventLoop::start(network::Connection::Client(conn), client_router_tx)
                         .await
                 {
                     error!("eventloop on conn {0} exit error: {1:?}", addr, e)

@@ -9,3 +9,9 @@ pub(crate) struct Dispatcher {
     /// 对等节点, key = nodeid
     conns: HashMap<usize, GrpcChannel>,
 }
+
+impl Dispatcher {
+    pub(crate) fn new() -> Self {
+        todo!()
+    }
+}
