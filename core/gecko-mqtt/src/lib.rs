@@ -8,6 +8,7 @@ pub mod broker;
 mod cluster;
 pub mod config;
 pub mod error;
+mod hook;
 mod network;
 mod protocol;
 mod server;
@@ -15,10 +16,8 @@ mod server;
 /// mqtt事件发生时的回调，由用户实现
 #[async_trait]
 pub trait Hook: Send + Sync + 'static {
-    type Error;
-
     /// 客户端认证
-    async fn authenticate() -> Result<(), Self::Error>;
+    async fn authenticate() -> bool;
     /// 客户端上线
     async fn connected();
     /// 客户端连接断开
