@@ -79,7 +79,7 @@ impl ClientConnection {
         loop {
             // 等待 keepalive 时间内至少有完整的包进来
             // 超时直接返回错误
-            let timeout = time::timeout(timeout, async { self.read_packet().await }).await?;
+            let timeout = time::timeout(timeout, self.read_packet()).await?;
 
             // 捕获 packet 读取错误
             match timeout {
