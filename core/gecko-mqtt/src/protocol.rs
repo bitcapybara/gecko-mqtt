@@ -15,7 +15,7 @@ pub(crate) type ConnectionId = usize;
 
 /// 发送给 router 的消息
 #[derive(Debug)]
-pub(crate) enum Incoming {
+pub enum Incoming {
     Connect {
         packet: Connect,
         conn_tx: Sender<Outgoing>,
@@ -24,7 +24,8 @@ pub(crate) enum Incoming {
 }
 
 /// router 发送给客户端的回复
-pub(crate) enum Outgoing {
+#[derive(Debug)]
+pub enum Outgoing {
     ConnAck { id: ConnectionId, packet: ConnAck },
     Data(Packet),
 }

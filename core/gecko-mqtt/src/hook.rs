@@ -12,11 +12,11 @@ impl DefaultHook {
 
 #[async_trait]
 impl Hook for DefaultHook {
-    async fn authenticate() -> bool {
+    async fn authenticate(&self) -> bool {
         true
     }
 
-    async fn connected() {}
+    async fn connected(&self) {}
 
-    async fn disconnect() {}
+    async fn disconnect(&self) {}
 }

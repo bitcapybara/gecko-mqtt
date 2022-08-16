@@ -145,7 +145,7 @@ impl FixedHeader {
 }
 
 #[derive(Debug)]
-pub(crate) enum Packet {
+pub enum Packet {
     Connect(Connect),
     ConnAck(ConnAck),
     Publish,

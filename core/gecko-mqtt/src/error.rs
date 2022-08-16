@@ -1,3 +1,7 @@
-pub type Result<T> = std::result::Result<T, Error>;
+use crate::network;
 
-pub struct Error {}
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("Network conn error: {0}")]
+    Network(#[from] network::Error),
+}

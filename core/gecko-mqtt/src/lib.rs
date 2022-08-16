@@ -18,9 +18,9 @@ mod server;
 #[async_trait]
 pub trait Hook: Send + Sync + 'static {
     /// 客户端认证
-    async fn authenticate() -> bool;
+    async fn authenticate(&self) -> bool;
     /// 客户端上线
-    async fn connected();
+    async fn connected(&self);
     /// 客户端连接断开
-    async fn disconnect();
+    async fn disconnect(&self);
 }

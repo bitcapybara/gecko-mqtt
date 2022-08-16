@@ -17,11 +17,11 @@ pub(crate) struct Router<H: Hook> {
     /// 管理客户端连接信息，
     conns: HashMap<ConnectionId, Session>,
     /// 钩子函数
-    hook: Arc<H>,
+    hook: Option<Arc<H>>,
 }
 
 impl<H: Hook> Router<H> {
-    pub(crate) fn new(hook: Arc<H>, router_rx: Receiver<Incoming>) -> Self {
+    pub(crate) fn new(hook: Option<Arc<H>>, router_rx: Receiver<Incoming>) -> Self {
         Self {
             router_rx,
             conns: HashMap::new(),
