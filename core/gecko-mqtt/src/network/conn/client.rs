@@ -1,6 +1,12 @@
-use bytes::{BufMut, BytesMut};
+use std::mem;
+
+use bytes::BytesMut;
 use packet::v4::ConnAck;
-use tokio::{io::AsyncWriteExt, net::TcpStream};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::TcpStream,
+    time,
+};
 
 use crate::network::{
     packet::{self, v4::Packet},
@@ -22,7 +28,7 @@ pub(crate) struct ClientConnection {
     /// 先写入缓冲区再刷入 socket 而非按字节向 socket 写入数据
     write: BytesMut,
     /// 上一次被批量读取出的 packet
-    packets: Option<Vec<Packet>>,
+    packets: Vec<Packet>,
 }
 
 impl ClientConnection {
@@ -31,13 +37,8 @@ impl ClientConnection {
             stream,
             read: BytesMut::new(),
             write: BytesMut::new(),
-            packets: None,
+            packets: Vec::with_capacity(10),
         }
-    }
-
-    /// 从已读取的缓冲区中获取 packet 存入列表
-    pub(crate) async fn read_packets(&mut self) -> Result<Vec<Packet>, Error> {
-        todo!()
     }
 
     /// 读取一个 packet
@@ -74,58 +75,48 @@ impl ClientConnection {
     }
 
     /// 从 socket 读取更多数据
-    async fn read(&mut self) -> Result<(), Error> {
-        todo!()
+    pub(crate) async fn read_more(&mut self, timeout: time::Duration) -> Result<(), Error> {
+        loop {
+            // 等待 keepalive 时间内至少有完整的包进来
+            // 超时直接返回错误
+            let timeout = time::timeout(timeout, async { self.read_packet().await }).await?;
+
+            // 捕获 packet 读取错误
+            match timeout {
+                Ok(packet) => self.packets.push(packet),
+                Err(Error::Packet(packet::Error::InsufficientBytes(_)))
+                    if !self.packets.is_empty() =>
+                {
+                    return Ok(())
+                }
+                Err(Error::Packet(packet::Error::InsufficientBytes(required))) => {
+                    self.read_bytes(required).await?
+                }
+                Err(e) => return Err(e),
+            }
+        }
+    }
+
+    pub(crate) fn packets(&mut self) -> Vec<Packet> {
+        mem::replace(&mut self.packets, Vec::with_capacity(10))
     }
 
     /// 等待从 socket 读出至少所需长度的数据，放入缓冲区
     /// 如果读不到指定长度的数据，返回错误
-    async fn read_bytes(&mut self, _required: usize) -> Result<(), Error> {
+    async fn read_bytes(&mut self, required: usize) -> Result<(), Error> {
         // AsyncReadExt socket.read()
-        // let mut total_read = 0;
-        // loop {
-        //     let read = self.socket.read_buf(&mut self.read).await?;
-        //     if 0 == read {
-        //         return if self.read.is_empty() {
-        //             Err(io::Error::new(
-        //                 ErrorKind::ConnectionAborted,
-        //                 "connection closed by peer",
-        //             ))
-        //         } else {
-        //             Err(io::Error::new(
-        //                 ErrorKind::ConnectionReset,
-        //                 "connection reset by peer",
-        //             ))
-        //         };
-        //     }
+        let mut total_read = 0;
+        loop {
+            let read = self.stream.read_buf(&mut self.read).await?;
+            if 0 == read {
+                todo!()
+            }
 
-        //     total_read += read;
-        //     if total_read >= required {
-        //         return Ok(total_read);
-        //     }
-        // }
-        todo!()
-    }
-
-    /// 只从缓冲区读取指定长度的数据
-    /// 如果缓冲区数据不足，返回 Insufficient 错误
-    async fn read_u8(&self) -> Result<u8, Error> {
-        // 先从缓冲区读取，缓冲区不够，再从 socket 读取
-        // loop {
-        //     if self.read.len() >= 1 {
-        //         // return
-        //         todo!()
-        //     }
-        //     self.stream.read(&mut self.read).await?;
-        // }
-        todo!()
-    }
-
-    /// 把数据写入缓冲区
-    async fn write_u8(&mut self, data: u8) -> Result<(), Error> {
-        self.write.reserve(1);
-        self.write.put_u8(data);
-        todo!()
+            total_read += read;
+            if total_read >= required {
+                return Ok(());
+            }
+        }
     }
 
     /// 协议层处理完一个或多个请求后，主动调用此方法

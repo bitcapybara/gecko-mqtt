@@ -1,6 +1,6 @@
 pub(crate) use client::ClientConnection;
 pub(crate) use peer::PeerConnection;
-use tokio::io;
+use tokio::{io, time};
 
 use super::{packet, v4::PacketType};
 
@@ -17,4 +17,6 @@ pub enum Error {
     IO(#[from] io::Error),
     #[error("Unexpected incoming message: {0:?}")]
     UnexpectedImcoming(PacketType),
+    #[error("Keep alive timeout")]
+    KeepAlive(#[from] time::error::Elapsed),
 }

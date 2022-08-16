@@ -9,6 +9,7 @@ use tokio::{
     net::TcpStream,
     select,
     sync::mpsc::{self, error::SendError, Receiver, Sender},
+    time,
 };
 
 use crate::{
@@ -41,6 +42,7 @@ pub struct ClientEventLoop<H: Hook> {
     router_tx: Sender<Incoming>,
     _hook: Option<Arc<H>>,
     conn_rx: Receiver<Outgoing>,
+    keepalive: time::Duration,
 }
 
 impl<H: Hook> ClientEventLoop<H> {
@@ -54,9 +56,9 @@ impl<H: Hook> ClientEventLoop<H> {
         // conn_tx 由 router/session 持有，用于给当前这个 connection 发送消息
         let (conn_tx, mut conn_rx) = mpsc::channel(1000);
 
-        // TODO 通过超时来处理 keepalive 逻辑
         // 第一个报文，必须是 connect 报文
         let connect = conn.read_connect().await?;
+        let keep_alive = time::Duration::from_secs(connect.keep_alive as u64);
         // 发送给 router 处理
         router_tx
             .send(Incoming::Connect {
@@ -81,6 +83,7 @@ impl<H: Hook> ClientEventLoop<H> {
                 router_tx,
                 _hook,
                 conn_rx,
+                keepalive: keep_alive + keep_alive.mul_f32(0.5),
             }),
             // 返回失败结果，退出循环
             code => Err(Error::FirstConnectFailed(code)),
@@ -91,14 +94,16 @@ impl<H: Hook> ClientEventLoop<H> {
     /// * connect 报文已在 new 方法中处理过，这里如果收到 connect 报文，视为非法连接
     /// * 从 conn socket 网络层获取 packet 数据，发送给 router
     /// * 接收 router 的回复，写入 conn socket 网络层
-
     pub(crate) async fn start(mut self) -> Result<(), Error> {
         loop {
             select! {
                 // 从网络层读数据
-                res = self.conn.read_packets() => {
+                res = self.conn.read_more(self.keepalive) => {
                     match res {
-                        Ok(packets) => self.router_tx.send(Incoming::Data(packets)).await?,
+                        Ok(_) => {
+                            let packets = self.conn.packets();
+                            self.router_tx.send(Incoming::Data(packets)).await?;
+                        },
                         Err(e) => return Err(network::Error::Connection(e)),
                     }
                 }
