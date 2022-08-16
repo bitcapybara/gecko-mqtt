@@ -1,10 +1,12 @@
+use std::sync::Arc;
+
 use log::error;
 use tokio::{net::TcpListener, sync::mpsc};
 
 use crate::{
     error::Result,
-    network::{self, ClientConnection, PeerConnection},
-    protocol::{ConnectionEventLoop, Router},
+    network::{ClientConnection, PeerConnection},
+    protocol::Router,
     server::PeerServer,
     Hook,
 };
@@ -26,11 +28,12 @@ impl Broker {
         todo!()
     }
 
-    async fn start<H: Hook>(&self, hook: H) -> Result<()> {
+    async fn start<H: Hook>(&self, hook: Arc<H>) -> Result<()> {
         // router 后台协程
         let (router_tx, router_rx) = mpsc::channel(1000);
+        let router_hook = hook.clone();
         tokio::spawn(async move {
-            let router = Router::new(hook, router_rx);
+            let router = Router::new(router_hook, router_rx);
             if let Err(e) = router.start().await {
                 error!("router exit error: {:?}", e)
             }
@@ -51,9 +54,7 @@ impl Broker {
         let peer_router_tx = router_tx.clone();
         tokio::spawn(async move {
             let conn = PeerConnection::new(peer_rx);
-            if let Err(e) =
-                ConnectionEventLoop::start(network::Connection::Peer(conn), peer_router_tx).await
-            {
+            if let Err(e) = conn.start(peer_router_tx) {
                 error!("eventloop on peer conn exit error: {0}", e)
             }
         });
@@ -74,12 +75,10 @@ impl Broker {
 
             // 事件循环
             let client_router_tx = router_tx.clone();
+            let client_hook = hook.clone();
             tokio::spawn(async move {
                 let conn = ClientConnection::new(stream);
-                if let Err(e) =
-                    ConnectionEventLoop::start(network::Connection::Client(conn), client_router_tx)
-                        .await
-                {
+                if let Err(e) = conn.start(client_router_tx, client_hook).await {
                     error!("eventloop on conn {0} exit error: {1:?}", addr, e)
                 }
             });

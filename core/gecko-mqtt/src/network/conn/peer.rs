@@ -1,11 +1,12 @@
 //! 来自对等节点的连接
 
-use tokio::sync::mpsc::Receiver;
+use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::cluster::Dispatcher;
-
-use crate::error::Result;
 use crate::network::v4::Packet;
+use crate::protocol::Incoming;
+
+use super::Error;
 
 /// 计划使用 grpc Unary Rpc
 ///
@@ -24,8 +25,13 @@ impl PeerConnection {
             dispatcher: Dispatcher::new(),
         }
     }
+
+    pub(crate) fn start(self, _router_tx: Sender<Incoming>) -> Result<(), Error> {
+        todo!()
+    }
+
     /// 从已读取的缓冲区中获取 packet 存入列表
-    pub(crate) async fn read_packets(&mut self) -> Result<Vec<Packet>> {
+    pub(crate) async fn read_packets(&mut self) -> Result<Vec<Packet>, Error> {
         todo!()
     }
 }

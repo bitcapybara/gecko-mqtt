@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use tokio::sync::mpsc::Receiver;
 
@@ -17,11 +17,11 @@ pub(crate) struct Router<H: Hook> {
     /// 管理客户端连接信息，
     conns: HashMap<ConnectionId, Session>,
     /// 钩子函数
-    hook: H,
+    hook: Arc<H>,
 }
 
 impl<H: Hook> Router<H> {
-    pub(crate) fn new(hook: H, router_rx: Receiver<Incoming>) -> Self {
+    pub(crate) fn new(hook: Arc<H>, router_rx: Receiver<Incoming>) -> Self {
         Self {
             router_rx,
             conns: HashMap::new(),

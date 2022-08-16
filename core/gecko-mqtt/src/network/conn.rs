@@ -1,8 +1,13 @@
 pub(crate) use client::ClientConnection;
 pub(crate) use peer::PeerConnection;
-use tokio::io;
+use tokio::{io, sync::mpsc::error::SendError};
 
-use super::packet;
+use crate::protocol::Incoming;
+
+use super::{
+    packet,
+    v4::{connack, PacketType},
+};
 
 mod client;
 mod peer;
@@ -15,9 +20,12 @@ pub(crate) enum Error {
     Packet(#[from] packet::Error),
     #[error("I/O: {0}")]
     IO(#[from] io::Error),
-}
-
-pub(crate) enum Connection {
-    Client(ClientConnection),
-    Peer(PeerConnection),
+    #[error("Unexpected router message")]
+    UnexpectedRouterMessage,
+    #[error("First connect fail")]
+    FirstConnectFailed(connack::ConnectReturnCode),
+    #[error("Unexpected incoming message: {0:?}")]
+    UnexpectedImcoming(PacketType),
+    #[error("Send message to router error: {0}")]
+    Send(#[from] SendError<Incoming>),
 }

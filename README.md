@@ -86,7 +86,7 @@ deviceA <---> | NodeA <---> NodeB | <---> deviceB
 * ConnectionEventLoop
     * 代表一个客户端连接，保存连接信息
     * readloop 从 Protocol 读取报文，提交给 Router
-    * keepalive 处理
+    * keepalive 处理（每次读取数据时，等待 keepalive*1.5 超时时间）
     * 后台线程阻塞，返回即表示断开连接
 
 ## EMQX 架构设计
