@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 pub(crate) use conn::{ClientConnection, PeerConnection};
 pub(crate) use packet::v4;
+use packet::v4::Packet;
 use tokio::{
     net::TcpStream,
     select,
@@ -34,13 +35,16 @@ pub enum Error {
     #[error("First connect fail")]
     FirstConnectFailed(connack::ConnectReturnCode),
     #[error("Send message to router error: {0}")]
-    Send(#[from] SendError<Incoming>),
+    SendIncoming(#[from] SendError<Incoming>),
+    #[error("Send message to conn self error: {0}")]
+    SendOutgoing(#[from] SendError<Outgoing>),
 }
 
 pub struct ClientEventLoop<H: Hook> {
     conn: ClientConnection,
     router_tx: Sender<Incoming>,
     _hook: Option<Arc<H>>,
+    conn_tx: Sender<Outgoing>,
     conn_rx: Receiver<Outgoing>,
     keepalive: time::Duration,
 }
@@ -63,7 +67,7 @@ impl<H: Hook> ClientEventLoop<H> {
         router_tx
             .send(Incoming::Connect {
                 packet: connect,
-                conn_tx,
+                conn_tx: conn_tx.clone(),
             })
             .await
             .unwrap();
@@ -82,6 +86,7 @@ impl<H: Hook> ClientEventLoop<H> {
                 conn,
                 router_tx,
                 _hook,
+                conn_tx,
                 conn_rx,
                 keepalive: keep_alive + keep_alive.mul_f32(0.5),
             }),
@@ -102,7 +107,12 @@ impl<H: Hook> ClientEventLoop<H> {
                     match res {
                         Ok(_) => {
                             let packets = self.conn.packets();
+                            // connect 请求在 new 中处理
+                            // ping 请求自己处理
+                            self.conn_tx.send(Outgoing::Data(Packet::PingResp)).await?;
+                            // 其他请求发送给 router 处理
                             self.router_tx.send(Incoming::Data(packets)).await?;
+
                         },
                         Err(e) => return Err(network::Error::Connection(e)),
                     }
