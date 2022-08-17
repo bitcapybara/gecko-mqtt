@@ -10,6 +10,6 @@ pub(crate) struct Dispatcher {
 
 impl Dispatcher {
     pub(crate) fn new() -> Self {
-        Self {  }
+        Self {}
     }
 }

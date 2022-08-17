@@ -1,5 +1,5 @@
-use gecko_mqtt::broker::{self, BrokerConfig};
 use examples::Config;
+use gecko_mqtt::broker::{self, BrokerConfig};
 
 #[tokio::main]
 async fn main() {
