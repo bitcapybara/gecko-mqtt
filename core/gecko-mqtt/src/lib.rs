@@ -20,7 +20,7 @@ pub trait Hook: Send + Sync + 'static {
     /// 客户端认证
     async fn authenticate(&self, login: Option<Login>) -> bool;
     /// 客户端上线
-    async fn connected(&self);
+    async fn connected(&self, client_id: &str);
     /// 客户端连接断开
-    async fn disconnect(&self);
+    async fn disconnect(&self, client_id: &str);
 }

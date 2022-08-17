@@ -62,6 +62,7 @@ impl<H: Hook> ClientEventLoop<H> {
 
         // 第一个报文，必须是 connect 报文
         let connect = conn.read_connect().await?;
+        let client_id = connect.client_id.clone();
         // 调用回调，认证
         if let Some(hook) = hook.clone() {
             let login = hook.authenticate(connect.login.clone()).await;
@@ -93,6 +94,10 @@ impl<H: Hook> ClientEventLoop<H> {
         let return_code = ack.code;
         // 发送给客户端
         conn.write_connack(ack).await?;
+        // 调用回调，连接
+        if let Some(hook) = hook.clone() {
+            hook.connected(&client_id).await
+        }
         match return_code {
             // router 处理成功，开启循环
             connack::ConnectReturnCode::Success => Ok(Self {
