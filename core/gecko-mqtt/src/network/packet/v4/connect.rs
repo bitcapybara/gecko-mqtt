@@ -84,7 +84,7 @@ impl LastWill {
 }
 
 /// 登录凭证
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Login {
     /// 用户名
     pub username: String,

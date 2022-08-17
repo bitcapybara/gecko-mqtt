@@ -19,7 +19,7 @@ use crate::{
     Hook,
 };
 
-use self::v4::connack;
+use self::v4::{connack, ConnAck, ConnectReturnCode};
 
 pub(crate) mod conn;
 mod packet;
@@ -43,7 +43,7 @@ pub enum Error {
 pub struct ClientEventLoop<H: Hook> {
     conn: ClientConnection,
     router_tx: Sender<Incoming>,
-    _hook: Option<Arc<H>>,
+    hook: Option<Arc<H>>,
     conn_tx: Sender<Outgoing>,
     conn_rx: Receiver<Outgoing>,
     keepalive: time::Duration,
@@ -53,7 +53,7 @@ impl<H: Hook> ClientEventLoop<H> {
     pub(crate) async fn new(
         stream: TcpStream,
         router_tx: Sender<Incoming>,
-        _hook: Option<Arc<H>>,
+        hook: Option<Arc<H>>,
     ) -> Result<Self, Error> {
         let mut conn = ClientConnection::new(stream);
 
@@ -62,6 +62,19 @@ impl<H: Hook> ClientEventLoop<H> {
 
         // 第一个报文，必须是 connect 报文
         let connect = conn.read_connect().await?;
+        // 调用回调，认证
+        if let Some(hook) = hook.clone() {
+            let login = hook.authenticate(connect.login.clone()).await;
+            if !login {
+                // If a server sends a CONNACK packet containing a non-zero return code it MUST set Session Present to 0 [MQTT-3.2.2-4].
+                conn_tx
+                    .send(Outgoing::ConnAck {
+                        id: 0,
+                        packet: ConnAck::new(ConnectReturnCode::BadUserNamePassword, false),
+                    })
+                    .await?;
+            }
+        }
         let keep_alive = time::Duration::from_secs(connect.keep_alive as u64);
         // 发送给 router 处理
         router_tx
@@ -85,7 +98,7 @@ impl<H: Hook> ClientEventLoop<H> {
             connack::ConnectReturnCode::Success => Ok(Self {
                 conn,
                 router_tx,
-                _hook,
+                hook,
                 conn_tx,
                 conn_rx,
                 keepalive: keep_alive + keep_alive.mul_f32(0.5),
