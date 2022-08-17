@@ -33,10 +33,10 @@ impl Broker {
     }
 
     pub async fn start(&self) -> Result<(), Error> {
-        self.start_with_hook::<HookNoop>(None).await
+        self.start_with_hook(Arc::new(HookNoop)).await
     }
 
-    pub async fn start_with_hook<H: Hook>(&self, hook: Option<Arc<H>>) -> Result<(), Error> {
+    pub async fn start_with_hook<H: Hook>(&self, hook: Arc<H>) -> Result<(), Error> {
         // router 后台协程
         let (router_tx, router_rx) = mpsc::channel(1000);
         let router_hook = hook.clone();

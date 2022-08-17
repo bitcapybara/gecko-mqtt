@@ -24,7 +24,7 @@ pub trait Hook: Send + Sync + 'static {
     async fn disconnect(&self, client_id: &str);
 }
 
-pub struct HookNoop;
+struct HookNoop;
 
 #[async_trait]
 impl Hook for HookNoop {
