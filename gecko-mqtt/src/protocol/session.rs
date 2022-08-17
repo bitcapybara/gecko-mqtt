@@ -2,7 +2,7 @@ use std::{collections::HashSet, time::Duration};
 
 use tokio::sync::mpsc::Sender;
 
-use crate::{cluster::Storage, network::v4};
+use crate::network::v4;
 
 use super::{ConnectionId, Outgoing};
 
@@ -39,8 +39,6 @@ pub struct Session {
 
     /// 发送给客户端的消息
     conn_tx: Sender<Outgoing>,
-    /// 持久化存储
-    persist: Storage,
 }
 
 impl Session {

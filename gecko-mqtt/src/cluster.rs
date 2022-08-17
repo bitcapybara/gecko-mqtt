@@ -8,7 +8,6 @@
 
 // pub(crate) use connection::Connection;
 pub(crate) use dispatcher::Dispatcher;
-pub(crate) use storage::Storage;
 
 mod dispatcher;
 mod manager;

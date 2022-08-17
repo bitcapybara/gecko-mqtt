@@ -1,0 +1,3 @@
+[broker.listen]
+client = ":1883"
+peer = ":1888"

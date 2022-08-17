@@ -22,7 +22,7 @@ use crate::{
 use self::v4::{connack, ConnAck, ConnectReturnCode};
 
 pub(crate) mod conn;
-mod packet;
+pub(crate) mod packet;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

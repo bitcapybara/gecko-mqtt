@@ -10,6 +10,7 @@ pub use session::SessionState;
 
 mod router;
 mod session;
+mod subscription;
 
 pub(crate) type ConnectionId = usize;
 

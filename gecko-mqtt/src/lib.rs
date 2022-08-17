@@ -7,7 +7,6 @@ use network::v4::Login;
 
 pub mod broker;
 mod cluster;
-pub mod config;
 pub mod error;
 mod network;
 mod protocol;
@@ -23,4 +22,18 @@ pub trait Hook: Send + Sync + 'static {
     async fn connected(&self, client_id: &str);
     /// 客户端连接断开
     async fn disconnect(&self, client_id: &str);
+}
+
+pub struct HookNoop;
+
+#[async_trait]
+impl Hook for HookNoop {
+    /// 客户端认证
+    async fn authenticate(&self, _login: Option<Login>) -> bool {
+        true
+    }
+    /// 客户端上线
+    async fn connected(&self, _client_id: &str) {}
+    /// 客户端连接断开
+    async fn disconnect(&self, _client_id: &str) {}
 }

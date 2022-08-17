@@ -8,27 +8,35 @@ use crate::{
     network::{ClientEventLoop, PeerConnection},
     protocol::Router,
     server::PeerServer,
-    Hook,
+    Hook, HookNoop,
 };
 
 pub struct BrokerConfig {
-    pub addr: String,
+    pub client_listen_addr: String,
+    pub peer_listen_addr: String,
 }
 
 /// 代表一个 mqtts 节点
 pub struct Broker {
     // 客户端监听地址
-    tcp_addr: String,
+    client_listen_addr: String,
     // 对等节点监听地址
-    grpc_addr: String,
+    peer_listen_addr: String,
 }
 
 impl Broker {
-    fn new(_cfg: BrokerConfig) -> Result<Self, Error> {
-        todo!()
+    pub fn new(cfg: BrokerConfig) -> Self {
+        Self {
+            client_listen_addr: cfg.client_listen_addr,
+            peer_listen_addr: cfg.peer_listen_addr,
+        }
     }
 
-    async fn start<H: Hook>(&self, hook: Option<Arc<H>>) -> Result<(), Error> {
+    pub async fn start(&self) -> Result<(), Error> {
+        self.start_with_hook::<HookNoop>(None).await
+    }
+
+    pub async fn start_with_hook<H: Hook>(&self, hook: Option<Arc<H>>) -> Result<(), Error> {
         // router 后台协程
         let (router_tx, router_rx) = mpsc::channel(1000);
         let router_hook = hook.clone();
@@ -41,7 +49,7 @@ impl Broker {
 
         // 开启 grpc peer server
         let (peer_tx, peer_rx) = mpsc::channel(1000);
-        let grpc_addr = self.grpc_addr.parse().unwrap();
+        let grpc_addr = self.peer_listen_addr.parse().unwrap();
         tokio::spawn(async move {
             tonic::transport::Server::builder()
                 .add_service(PeerServer::new_server(peer_tx))
@@ -60,7 +68,7 @@ impl Broker {
         });
 
         // 开启客户端连接监听
-        let listener = TcpListener::bind(&self.tcp_addr).await.unwrap();
+        let listener = TcpListener::bind(&self.client_listen_addr).await.unwrap();
 
         loop {
             // 获取到连接
