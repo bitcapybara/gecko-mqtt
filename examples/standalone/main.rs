@@ -4,7 +4,7 @@ use examples::Config;
 #[tokio::main]
 async fn main() {
     // 获取配置
-    let cfg = Config::from_path("./standalone.toml").await;
+    let cfg = Config::from_path("./examples/config/standalone.toml").await;
 
     // 启动 broker
     broker::Broker::new(BrokerConfig {
