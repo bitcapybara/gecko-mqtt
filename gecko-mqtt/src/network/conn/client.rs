@@ -61,8 +61,7 @@ impl ClientConnection {
 
     pub(crate) async fn write_connack(&mut self, connack: ConnAck) -> Result<(), Error> {
         connack.write(&mut self.write)?;
-        self.flush().await?;
-        Ok(())
+        self.flush().await
     }
 
     pub(crate) async fn write_packet(&mut self, packet: Packet) -> Result<(), Error> {
