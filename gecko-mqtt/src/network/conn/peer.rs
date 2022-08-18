@@ -27,7 +27,7 @@ impl PeerConnection {
     }
 
     pub(crate) fn start(self, _router_tx: Sender<Incoming>) -> Result<(), Error> {
-        todo!()
+        Ok(())
     }
 
     /// 从已读取的缓冲区中获取 packet 存入列表

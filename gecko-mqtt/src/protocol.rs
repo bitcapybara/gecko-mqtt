@@ -12,13 +12,11 @@ mod router;
 mod session;
 mod subscription;
 
-pub(crate) type ConnectionId = usize;
-
 /// 发送给 router 的消息
 #[derive(Debug)]
 pub enum Incoming {
     Connect {
-        packet: Connect,
+        connect: Connect,
         conn_tx: Sender<Outgoing>,
     },
     Data(Vec<Packet>),
@@ -27,6 +25,7 @@ pub enum Incoming {
 /// router 发送给客户端的回复
 #[derive(Debug)]
 pub enum Outgoing {
-    ConnAck { id: ConnectionId, packet: ConnAck },
+    ConnAck(ConnAck),
     Data(Packet),
+    Disconnect,
 }

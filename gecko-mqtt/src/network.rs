@@ -68,25 +68,25 @@ impl<H: Hook> ClientEventLoop<H> {
         if !login {
             // If a server sends a CONNACK packet containing a non-zero return code it MUST set Session Present to 0 [MQTT-3.2.2-4].
             conn_tx
-                .send(Outgoing::ConnAck {
-                    id: 0,
-                    packet: ConnAck::new(ConnectReturnCode::BadUserNamePassword, false),
-                })
+                .send(Outgoing::ConnAck(ConnAck::new(
+                    ConnectReturnCode::NotAuthorized,
+                    false,
+                )))
                 .await?;
         }
         let keep_alive = time::Duration::from_secs(connect.keep_alive as u64);
         // 发送给 router 处理
         router_tx
             .send(Incoming::Connect {
-                packet: connect,
+                connect,
                 conn_tx: conn_tx.clone(),
             })
             .await
             .unwrap();
         // 获取 router 处理结果
         let outcoming = conn_rx.recv().await.unwrap();
-        let (_id, ack) = match outcoming {
-            Outgoing::ConnAck { id, packet } => (id, packet),
+        let ack = match outcoming {
+            Outgoing::ConnAck(packet) => packet,
             _ => return Err(Error::UnexpectedRouterMessage),
         };
         let return_code = ack.code;
