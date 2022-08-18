@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 pub(crate) use conn::{ClientConnection, PeerConnection};
 pub(crate) use packet::v4;
-use packet::v4::Packet;
+use packet::v4::{Packet, PacketType};
 use tokio::{
     net::TcpStream,
     select,
@@ -117,23 +117,27 @@ impl<H: Hook> ClientEventLoop<H> {
         loop {
             select! {
                 // 从网络层读数据
-                res = self.conn.read_more(self.keepalive) => {
-                    match res {
-                        Ok(_) => {
-                            let packets = self.conn.packets();
-                            // connect 请求在 new 中处理
-                            // ping 请求自己处理
-                            self.conn_tx.send(Outgoing::Data(Packet::PingResp)).await?;
+                reads = self.conn.read_more(self.keepalive) => {
+                    match reads {
+                        Ok(packets) => {
+                            let mut data:Vec<Packet> = Vec::with_capacity(packets.len());
+                            for packet in packets {
+                                match packet.packet_type() {
+                                    // ping 请求自己处理
+                                    PacketType::PingReq => self.conn_tx.send(Outgoing::Data(Packet::PingResp)).await?,
+                                    _ => data.push(packet),
+                                }
+                            }
                             // 其他请求发送给 router 处理
-                            self.router_tx.send(Incoming::Data(packets)).await?;
+                            self.router_tx.send(Incoming::Data(data)).await?;
 
                         },
                         Err(e) => return Err(network::Error::Connection(e)),
                     }
                 }
                 // 从 router 读回复
-                res = self.conn_rx.recv() => {
-                    match res {
+                recv = self.conn_rx.recv() => {
+                    match recv {
                         Some(outgoing) => match outgoing {
                             Outgoing::Data(packet) => self.conn.write_packet(packet).await?,
                             _ => return Err(Error::UnexpectedRouterMessage)

@@ -1,5 +1,3 @@
-use std::mem;
-
 use bytes::BytesMut;
 use packet::v4::ConnAck;
 use tokio::{
@@ -27,8 +25,6 @@ pub(crate) struct ClientConnection {
     /// 写缓冲区
     /// 先写入缓冲区再刷入 socket 而非按字节向 socket 写入数据
     write: BytesMut,
-    /// 上一次被批量读取出的 packet
-    packets: Vec<Packet>,
 }
 
 impl ClientConnection {
@@ -37,14 +33,13 @@ impl ClientConnection {
             stream,
             read: BytesMut::new(),
             write: BytesMut::new(),
-            packets: Vec::with_capacity(10),
         }
     }
 
     /// 读取一个 packet
     async fn read_packet(&mut self) -> Result<Packet, Error> {
         loop {
-            let required = match packet::v4::Packet::read_from(&mut self.read) {
+            let required = match Packet::read_from(&mut self.read) {
                 Ok(packet) => return Ok(packet),
                 Err(packet::Error::InsufficientBytes(n)) => n,
                 Err(e) => return Err(Error::Packet(e)),
@@ -75,7 +70,8 @@ impl ClientConnection {
     }
 
     /// 从 socket 读取更多数据
-    pub(crate) async fn read_more(&mut self, timeout: time::Duration) -> Result<(), Error> {
+    pub(crate) async fn read_more(&mut self, timeout: time::Duration) -> Result<Vec<Packet>, Error> {
+        let mut packets = Vec::new();
         loop {
             // 等待 keepalive 时间内至少有完整的包进来
             // 超时直接返回错误
@@ -83,22 +79,15 @@ impl ClientConnection {
 
             // 捕获 packet 读取错误
             match timeout {
-                Ok(packet) => self.packets.push(packet),
+                Ok(packet) => packets.push(packet),
                 Err(Error::Packet(packet::Error::InsufficientBytes(_)))
-                    if !self.packets.is_empty() =>
-                {
-                    return Ok(())
-                }
+                    if !packets.is_empty() => return Ok(packets),
                 Err(Error::Packet(packet::Error::InsufficientBytes(required))) => {
                     self.read_bytes(required).await?
                 }
                 Err(e) => return Err(e),
             }
         }
-    }
-
-    pub(crate) fn packets(&mut self) -> Vec<Packet> {
-        mem::replace(&mut self.packets, Vec::with_capacity(10))
     }
 
     /// 等待从 socket 读出至少所需长度的数据，放入缓冲区
