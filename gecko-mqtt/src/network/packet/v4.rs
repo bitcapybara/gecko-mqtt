@@ -169,17 +169,10 @@ impl Packet {
 
         // 报文类型
         let packet_type = fixed_header.packet_type()?;
-        println!(
-            "======type {:?}  {:?}",
-            packet_type, fixed_header.remaining_len
-        );
         // 没有负载的 packet 类型，获取到报文头后，可以直接返回
         if fixed_header.remaining_len == 0 {
             return match packet_type {
-                PacketType::PingReq => {
-                    println!("=====return ping");
-                    Ok(Packet::PingReq)
-                }
+                PacketType::PingReq => Ok(Packet::PingReq),
                 PacketType::PingResp => Ok(Packet::PingResp),
                 _ => Err(Error::PayloadRequired),
             };

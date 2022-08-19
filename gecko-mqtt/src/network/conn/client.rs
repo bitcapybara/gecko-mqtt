@@ -46,9 +46,7 @@ impl ClientConnection {
             };
 
             // 数据不足，读取更多数据
-            println!("=====required {}", required);
             self.read_bytes(required).await?;
-            println!("=====read required")
         }
     }
 
@@ -76,7 +74,6 @@ impl ClientConnection {
         &mut self,
         timeout: time::Duration,
     ) -> Result<Vec<Packet>, Error> {
-        println!("====read more {:?}", timeout);
         let mut packets = Vec::new();
         loop {
             // 等待 keepalive 时间内至少有完整的包进来
@@ -97,8 +94,7 @@ impl ClientConnection {
                     return Ok(packets)
                 }
                 Err(Error::Packet(packet::Error::InsufficientBytes(required))) => {
-                    self.read_bytes(required).await?;
-                    println!("=====read required")
+                    self.read_bytes(required).await?
                 }
                 Err(e) => return Err(e),
             }
