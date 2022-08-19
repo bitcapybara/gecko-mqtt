@@ -55,6 +55,7 @@ pub enum PacketType {
     Disconnect,
 }
 
+#[derive(Debug)]
 struct FixedHeader {
     /// 固定头的第一个字节，包含报文类型和flags
     byte1: u8,
@@ -102,7 +103,6 @@ impl FixedHeader {
         }
         // 第一个字节
         let byte1 = stream.next().unwrap();
-
         // 剩余字节长度
         let mut remaining_len: usize = 0;
         // 固定头长度
@@ -138,7 +138,7 @@ impl FixedHeader {
 
         Ok(Self {
             byte1: *byte1,
-            fixed_header_len: header_len,
+            fixed_header_len: header_len + 1,
             remaining_len,
         })
     }

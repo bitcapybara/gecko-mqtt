@@ -69,7 +69,10 @@ impl ClientConnection {
     }
 
     /// 从 socket 读取更多数据
-    pub(crate) async fn read_more(&mut self, timeout: time::Duration) -> Result<Vec<Packet>, Error> {
+    pub(crate) async fn read_more(
+        &mut self,
+        timeout: time::Duration,
+    ) -> Result<Vec<Packet>, Error> {
         let mut packets = Vec::new();
         loop {
             // 等待 keepalive 时间内至少有完整的包进来
@@ -79,8 +82,9 @@ impl ClientConnection {
             // 捕获 packet 读取错误
             match timeout {
                 Ok(packet) => packets.push(packet),
-                Err(Error::Packet(packet::Error::InsufficientBytes(_)))
-                    if !packets.is_empty() => return Ok(packets),
+                Err(Error::Packet(packet::Error::InsufficientBytes(_))) if !packets.is_empty() => {
+                    return Ok(packets)
+                }
                 Err(Error::Packet(packet::Error::InsufficientBytes(required))) => {
                     self.read_bytes(required).await?
                 }

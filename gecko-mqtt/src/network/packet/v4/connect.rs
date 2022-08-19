@@ -2,7 +2,7 @@ use bytes::Bytes;
 
 use crate::network::packet::{self, Error, Protocol, QoS};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Connect {
     /// 协议版本
     pub protocol: Protocol,
@@ -52,7 +52,7 @@ impl Connect {
 }
 
 /// 遗嘱设置
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct LastWill {
     /// 遗嘱发送的目标主题
     pub topic: String,
@@ -84,7 +84,7 @@ impl LastWill {
 }
 
 /// 登录凭证
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Login {
     /// 用户名
     pub username: String,
@@ -113,5 +113,93 @@ impl Login {
         };
 
         Ok(login)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bytes::Buf;
+    use packet::v4::FixedHeader;
+
+    use super::*;
+
+    #[test]
+    fn connect_parsing_works() {
+        let mut stream = bytes::BytesMut::new();
+        let packetstream = &[
+            0x10,
+            39, // packet type, flags and remaining len
+            0x00,
+            0x04,
+            b'M',
+            b'Q',
+            b'T',
+            b'T',
+            0x04,        // variable header
+            0b1100_1110, // variable header. +username, +password, -will retain, will qos=1, +last_will, +clean_session
+            0x00,
+            0x0a, // variable header. keep alive = 10 sec
+            0x00,
+            0x04,
+            b't',
+            b'e',
+            b's',
+            b't', // payload. client_id
+            0x00,
+            0x02,
+            b'/',
+            b'a', // payload. will topic = '/a'
+            0x00,
+            0x07,
+            b'o',
+            b'f',
+            b'f',
+            b'l',
+            b'i',
+            b'n',
+            b'e', // payload. variable header. will msg = 'offline'
+            0x00,
+            0x04,
+            b'r',
+            b'u',
+            b'm',
+            b'q', // payload. username = 'rumq'
+            0x00,
+            0x02,
+            b'm',
+            b'q', // payload. password = 'mq'
+            0xDE,
+            0xAD,
+            0xBE,
+            0xEF, // extra packets in the stream
+        ];
+
+        stream.extend_from_slice(&packetstream[..]);
+        let fixed_header = FixedHeader::read_from(stream.iter()).unwrap();
+        let mut connect_bytes = stream.split_to(fixed_header.packet_len()).freeze();
+
+        let variable_header_index = fixed_header.fixed_header_len;
+        connect_bytes.advance(variable_header_index);
+        let packet = Connect::read_from(connect_bytes).unwrap();
+
+        assert_eq!(
+            packet,
+            Connect {
+                protocol: Protocol::V4,
+                keep_alive: 10,
+                client_id: "test".into(),
+                clean_session: true,
+                last_will: Some(LastWill {
+                    topic: "/a".into(),
+                    message: "offline".into(),
+                    qos: QoS::AtLeastOnce,
+                    retain: false
+                }),
+                login: Some(Login {
+                    username: "rumq".into(),
+                    password: "mq".into()
+                })
+            }
+        );
     }
 }

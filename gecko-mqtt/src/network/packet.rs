@@ -29,7 +29,7 @@ pub enum Error {
     PayloadTooLarge,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Protocol {
     /// v3.1.1
     V4,
@@ -81,11 +81,8 @@ fn read_string(stream: &mut Bytes) -> Result<String, Error> {
 }
 
 fn read_u16(stream: &mut Bytes) -> Result<u16, Error> {
-    if stream.is_empty() {
-        return Err(Error::MalformedPacket);
-    }
     if stream.len() < 2 {
-        return Err(Error::InsufficientBytes(2 - stream.len()));
+        return Err(Error::MalformedPacket);
     }
 
     Ok(stream.get_u16())

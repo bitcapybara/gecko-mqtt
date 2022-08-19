@@ -8,7 +8,7 @@ async fn main() {
     let cfg = Config::from_path("./examples/config/standalone.toml").await;
 
     // 日志
-    Logger::try_with_str("trace").unwrap().start().unwrap();
+    Logger::try_with_str("debug").unwrap().start().unwrap();
 
     // 启动 broker
     broker::Broker::new(BrokerConfig {
