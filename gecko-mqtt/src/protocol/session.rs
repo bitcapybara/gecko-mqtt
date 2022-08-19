@@ -1,10 +1,10 @@
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 use tokio::sync::mpsc::Sender;
 
-use crate::network::v4;
+use crate::network::{packet, v4};
 
-use super::Outgoing;
+use super::{subscription::Subscription, Outgoing};
 
 /// 代表服务端的一次会话
 /// 会话的生命周期不能小于一次客户端连接
@@ -17,8 +17,10 @@ pub struct Session {
     clean_session: bool,
     /// 过期配置
 
-    /// 订阅的主题 topic,qos（持久化）
-    subscribes: HashSet<v4::Subscribe>,
+    /// 订阅的主题（精确匹配）
+    concrete_subscriptions: HashMap<String, packet::QoS>,
+    /// 订阅的主题（包含通配符）
+    wild_subscriptions: Vec<Subscription>,
     /// 保存发送给客户端但是还没有删除的消息（QoS1, QoS2）(持久化)
     messages: Vec<v4::Publish>,
 
@@ -31,7 +33,8 @@ impl Session {
         Self {
             client_id: client_id.into(),
             clean_session,
-            subscribes: HashSet::new(),
+            concrete_subscriptions: HashMap::new(),
+            wild_subscriptions: Vec::new(),
             messages: Vec::new(),
             conn_tx: Some(conn_tx),
         }
@@ -41,7 +44,8 @@ impl Session {
         Self {
             client_id: self.client_id,
             clean_session,
-            subscribes: self.subscribes,
+            concrete_subscriptions: self.concrete_subscriptions,
+            wild_subscriptions: self.wild_subscriptions,
             messages: self.messages,
             conn_tx: Some(conn_tx),
         }
