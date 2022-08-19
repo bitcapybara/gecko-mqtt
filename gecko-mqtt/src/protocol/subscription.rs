@@ -4,6 +4,9 @@ use crate::network::packet;
 /// map[topic-filter]Subscription
 #[derive(Debug)]
 pub struct Subscription {
+    /// 客户端 id
     client_id: String,
-    maximum_qos: packet::QoS,
+    /// Node Id 用于分布式
+    /// 服务质量
+    qos: packet::QoS,
 }

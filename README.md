@@ -122,3 +122,21 @@ https://www.emqx.io/docs/zh/v5.0/design/design.html#%E7%B3%BB%E7%BB%9F%E6%9E%B6%
 * client_id <-> session_id
 * session_id <-> node_id
 * session_id <-> session struct
+
+## 需要存储的数据
+
+1. session 会话: 
+    * client-id 为 key
+    * 未发送的 qos1+ 消息
+    * 客户端订阅的 topic-filter
+    * 只保存在设备连接的节点，设备漂移后，转移到新节点？
+2. 订阅树 / 路由表
+    * topic-filter 为 key
+    * topic-filter -> node-id -> client-id
+    * 集群所有节点保存？
+
+### TODO
+
+1. 单节点，内存实现
+2. 单节点，持久化实现
+3. raft 多节点，持久化实现

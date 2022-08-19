@@ -6,7 +6,6 @@ use tokio::sync::mpsc::Sender;
 use crate::network::v4::{ConnAck, Connect, Packet};
 
 pub(crate) use router::Router;
-pub use session::SessionState;
 
 mod router;
 mod session;
