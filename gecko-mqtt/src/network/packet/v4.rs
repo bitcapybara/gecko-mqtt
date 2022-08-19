@@ -7,7 +7,6 @@ use bytes::{Buf, BytesMut};
 pub use connack::*;
 pub use connect::*;
 pub use disconnect::*;
-pub use pingreq::*;
 pub use pingresp::*;
 pub use puback::*;
 pub use pubcomp::*;
@@ -24,7 +23,6 @@ use super::Error;
 pub mod connack;
 pub mod connect;
 pub mod disconnect;
-pub mod pingreq;
 pub mod pingresp;
 pub mod puback;
 pub mod pubcomp;
@@ -171,11 +169,17 @@ impl Packet {
 
         // 报文类型
         let packet_type = fixed_header.packet_type()?;
-
+        println!(
+            "======type {:?}  {:?}",
+            packet_type, fixed_header.remaining_len
+        );
         // 没有负载的 packet 类型，获取到报文头后，可以直接返回
         if fixed_header.remaining_len == 0 {
             return match packet_type {
-                PacketType::PingReq => Ok(Packet::PingReq),
+                PacketType::PingReq => {
+                    println!("=====return ping");
+                    Ok(Packet::PingReq)
+                }
                 PacketType::PingResp => Ok(Packet::PingResp),
                 _ => Err(Error::PayloadRequired),
             };
@@ -210,7 +214,7 @@ impl Packet {
     pub(crate) fn write(&self, stream: &mut BytesMut) -> Result<(), Error> {
         match self {
             Packet::ConnAck(ack) => ack.write(stream),
-            Packet::PingResp => todo!(),
+            Packet::PingResp => PingResp.write(stream),
             Packet::Disconnect => todo!(),
             _ => todo!(),
         }

@@ -118,13 +118,18 @@ impl<H: Hook> ClientEventLoop<H> {
             select! {
                 // 从网络层读数据
                 reads = self.conn.read_more(self.keepalive) => {
+                    println!("====read more done");
                     match reads {
                         Ok(packets) => {
                             let mut data:Vec<Packet> = Vec::with_capacity(packets.len());
                             for packet in packets {
+                                println!("=====read more {:?}", packet.packet_type());
                                 match packet.packet_type() {
                                     // ping 请求自己处理
-                                    PacketType::PingReq => self.conn_tx.send(Outgoing::Data(Packet::PingResp)).await?,
+                                    PacketType::PingReq => {
+                                        println!("=====send conntx");
+                                        self.conn_tx.send(Outgoing::Data(Packet::PingResp)).await?
+                                    },
                                     _ => data.push(packet),
                                 }
                             }
@@ -139,7 +144,10 @@ impl<H: Hook> ClientEventLoop<H> {
                 recv = self.conn_rx.recv() => {
                     match recv {
                         Some(outgoing) => match outgoing {
-                            Outgoing::Data(packet) => self.conn.write_packet(packet).await?,
+                            Outgoing::Data(packet) => {
+                                println!("=====recv conntx");
+                                self.conn.write_packet(packet).await?
+                            },
                             _ => return Err(Error::UnexpectedRouterMessage)
                         },
                         None => todo!(),

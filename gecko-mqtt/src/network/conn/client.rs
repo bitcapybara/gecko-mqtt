@@ -1,5 +1,5 @@
 use bytes::BytesMut;
-use packet::v4::ConnAck;
+use packet::v4::{ConnAck, PacketType};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
@@ -46,7 +46,9 @@ impl ClientConnection {
             };
 
             // 数据不足，读取更多数据
+            println!("=====required {}", required);
             self.read_bytes(required).await?;
+            println!("=====read required")
         }
     }
 
@@ -65,7 +67,8 @@ impl ClientConnection {
     }
 
     pub(crate) async fn write_packet(&mut self, packet: Packet) -> Result<(), Error> {
-        Ok(packet.write(&mut self.write)?)
+        packet.write(&mut self.write)?;
+        self.flush().await
     }
 
     /// 从 socket 读取更多数据
@@ -73,6 +76,7 @@ impl ClientConnection {
         &mut self,
         timeout: time::Duration,
     ) -> Result<Vec<Packet>, Error> {
+        println!("====read more {:?}", timeout);
         let mut packets = Vec::new();
         loop {
             // 等待 keepalive 时间内至少有完整的包进来
@@ -81,12 +85,20 @@ impl ClientConnection {
 
             // 捕获 packet 读取错误
             match timeout {
-                Ok(packet) => packets.push(packet),
+                Ok(packet) => {
+                    let packet_type = packet.packet_type();
+
+                    match packet_type {
+                        PacketType::PingReq => self.write_packet(Packet::PingResp).await?,
+                        _ => packets.push(packet),
+                    }
+                }
                 Err(Error::Packet(packet::Error::InsufficientBytes(_))) if !packets.is_empty() => {
                     return Ok(packets)
                 }
                 Err(Error::Packet(packet::Error::InsufficientBytes(required))) => {
-                    self.read_bytes(required).await?
+                    self.read_bytes(required).await?;
+                    println!("=====read required")
                 }
                 Err(e) => return Err(e),
             }
