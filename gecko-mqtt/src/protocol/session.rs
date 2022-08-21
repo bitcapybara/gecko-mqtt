@@ -1,10 +1,22 @@
 use std::collections::HashMap;
 
-use tokio::sync::mpsc::Sender;
+use packet::v4::Packet;
+use tokio::sync::mpsc::{error::SendError, Sender};
 
-use crate::network::{packet, v4};
+use crate::network::{
+    packet::{self, QoS},
+    v4,
+};
 
-use super::{subscription::Subscription, Outgoing};
+use super::Outgoing;
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("Failed to send outgoing message: {0}")]
+    SendOutgoing(#[from] SendError<Outgoing>),
+    #[error("Session conn tx not found")]
+    SessionConnTxNotFound,
+}
 
 /// 代表服务端的一次会话
 /// 会话的生命周期不能小于一次客户端连接
@@ -18,9 +30,9 @@ pub struct Session {
     /// 过期配置
 
     /// 订阅的主题（精确匹配）
-    concrete_subscriptions: HashMap<String, packet::QoS>,
+    concrete_subscriptions: HashMap<String, QoS>,
     /// 订阅的主题（包含通配符）
-    wild_subscriptions: Vec<Subscription>,
+    wild_subscriptions: HashMap<String, QoS>,
     /// 保存发送给客户端但是还没有删除的消息（QoS1, QoS2）(持久化)
     messages: Vec<v4::Publish>,
 
@@ -34,7 +46,7 @@ impl Session {
             client_id: client_id.into(),
             clean_session,
             concrete_subscriptions: HashMap::new(),
-            wild_subscriptions: Vec::new(),
+            wild_subscriptions: HashMap::new(),
             messages: Vec::new(),
             conn_tx: Some(conn_tx),
         }
@@ -48,6 +60,27 @@ impl Session {
             wild_subscriptions: self.wild_subscriptions,
             messages: self.messages,
             conn_tx: Some(conn_tx),
+        }
+    }
+
+    /// 添加订阅topic，如果相同则覆盖
+    /// 即，同一个会话中，不可以有多个一样的 topic filter
+    pub fn insert_filter(&mut self, filter: (&str, QoS)) {
+        let topic = filter.0.into();
+        let qos = filter.1;
+        if packet::topic_has_wildcards(filter.0) {
+            self.wild_subscriptions.insert(topic, qos);
+        } else {
+            self.concrete_subscriptions.insert(topic, qos);
+        }
+    }
+
+    /// 给客户端发送消息
+    pub async fn send_packet(&self, packet: Packet) -> Result<(), Error> {
+        if let Some(ref sender) = self.conn_tx {
+            Ok(sender.send(Outgoing::Data(packet)).await?)
+        } else {
+            Err(Error::SessionConnTxNotFound)
         }
     }
 }

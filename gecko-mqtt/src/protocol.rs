@@ -18,7 +18,10 @@ pub enum Incoming {
         connect: Connect,
         conn_tx: Sender<Outgoing>,
     },
-    Data(Vec<Packet>),
+    Data {
+        client_id: String,
+        packets: Vec<Packet>,
+    },
 }
 
 /// router 发送给客户端的回复

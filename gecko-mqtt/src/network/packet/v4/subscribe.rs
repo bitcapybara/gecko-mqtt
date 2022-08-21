@@ -19,7 +19,7 @@ impl Subscribe {
             let qos = options & 0b0000_0011;
 
             filters.push(SubscribeFilter {
-                filter,
+                path: filter,
                 qos: qos.try_into()?,
             })
         }
@@ -30,6 +30,6 @@ impl Subscribe {
 
 #[derive(Debug)]
 pub struct SubscribeFilter {
-    pub filter: String,
+    pub path: String,
     pub qos: QoS,
 }

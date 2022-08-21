@@ -41,6 +41,7 @@ pub enum Error {
 }
 
 pub struct ClientEventLoop<H: Hook> {
+    client_id: String,
     conn: ClientConnection,
     router_tx: Sender<Incoming>,
     hook: Arc<H>,
@@ -97,6 +98,7 @@ impl<H: Hook> ClientEventLoop<H> {
         match return_code {
             // router 处理成功，开启循环
             connack::ConnectReturnCode::Success => Ok(Self {
+                client_id,
                 conn,
                 router_tx,
                 hook,
@@ -129,7 +131,10 @@ impl<H: Hook> ClientEventLoop<H> {
                                 }
                             }
                             // 其他请求发送给 router 处理
-                            self.router_tx.send(Incoming::Data(data)).await?;
+                            self.router_tx.send(Incoming::Data{
+                                client_id: self.client_id.clone(),
+                                packets: data
+                            }).await?;
 
                         },
                         Err(e) => return Err(network::Error::Connection(e)),
