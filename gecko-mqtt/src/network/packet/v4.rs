@@ -150,17 +150,17 @@ pub enum Packet {
     PubAck,
     PubRel,
     PubComp,
-    Subscribe,
-    SubAck,
+    Subscribe(Subscribe),
+    SubAck(SubAck),
     Unsubscribe,
-    UnsubAck,
+    UnsubAck(UnsubAck),
     PingReq,
     PingResp,
     Disconnect,
 }
 
 impl Packet {
-    pub(crate) fn read_from(stream: &mut BytesMut) -> Result<Self, Error> {
+    pub(crate) fn read(stream: &mut BytesMut) -> Result<Self, Error> {
         let fixed_header: FixedHeader = FixedHeader::read_from(stream.iter())?;
 
         // 根据固定头给出的长度信息，取出整个报文字节（包含报文头）
@@ -185,20 +185,9 @@ impl Packet {
         packet.advance(variable_header_index);
 
         let packet = match packet_type {
-            PacketType::Connect => Packet::Connect(Connect::read_from(packet)?),
-            PacketType::ConnAck => todo!(),
-            PacketType::Publish => todo!(),
-            PacketType::PubAck => todo!(),
-            PacketType::PubRec => todo!(),
-            PacketType::PubRel => todo!(),
-            PacketType::PubComp => todo!(),
-            PacketType::Subscribe => todo!(),
-            PacketType::SubAck => todo!(),
-            PacketType::Unsubscribe => todo!(),
-            PacketType::UnsubAck => todo!(),
-            PacketType::PingReq => todo!(),
-            PacketType::PingResp => todo!(),
-            PacketType::Disconnect => todo!(),
+            PacketType::Connect => Packet::Connect(Connect::read(packet)?),
+            PacketType::Subscribe => Packet::Subscribe(Subscribe::read(packet)?),
+            _ => return Err(Error::UnexpectedPacketType),
         };
 
         Ok(packet)
@@ -208,7 +197,7 @@ impl Packet {
         match self {
             Packet::ConnAck(ack) => ack.write(stream),
             Packet::PingResp => PingResp.write(stream),
-            Packet::Disconnect => todo!(),
+            Packet::SubAck(ack) => ack.write(stream),
             _ => todo!(),
         }
     }
@@ -222,10 +211,10 @@ impl Packet {
             Packet::PubAck => PacketType::PubAck,
             Packet::PubRel => PacketType::PubRel,
             Packet::PubComp => PacketType::PubComp,
-            Packet::Subscribe => PacketType::Subscribe,
-            Packet::SubAck => PacketType::SubAck,
+            Packet::Subscribe(_) => PacketType::Subscribe,
+            Packet::SubAck(_) => PacketType::SubAck,
             Packet::Unsubscribe => PacketType::Unsubscribe,
-            Packet::UnsubAck => PacketType::UnsubAck,
+            Packet::UnsubAck(_) => PacketType::UnsubAck,
             Packet::PingReq => PacketType::PingReq,
             Packet::PingResp => PacketType::PingResp,
             Packet::Disconnect => PacketType::Disconnect,

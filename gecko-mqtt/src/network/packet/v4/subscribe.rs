@@ -1,19 +1,35 @@
-use bytes::BytesMut;
+use bytes::{Buf, Bytes};
 
-use crate::network::packet::{Error, QoS};
+use crate::network::packet::{self, read_u8, Error, QoS};
 
+#[derive(Debug)]
 pub struct Subscribe {
-    pub pkid: u16,
-    pub filters: Vec<TopicFilter>,
+    pub packet_id: u16,
+    pub filters: Vec<SubscribeFilter>,
 }
 
 impl Subscribe {
-    fn read_from(_stream: &mut BytesMut) -> Result<Self, Error> {
-        todo!()
+    pub fn read(mut stream: Bytes) -> Result<Self, Error> {
+        let packet_id = packet::read_u16(&mut stream)?;
+
+        let mut filters = Vec::new();
+        while stream.has_remaining() {
+            let filter = packet::read_string(&mut stream)?;
+            let options = read_u8(&mut stream)?;
+            let qos = options & 0b0000_0011;
+
+            filters.push(SubscribeFilter {
+                filter,
+                qos: qos.try_into()?,
+            })
+        }
+
+        Ok(Subscribe { packet_id, filters })
     }
 }
 
-pub struct TopicFilter {
+#[derive(Debug)]
+pub struct SubscribeFilter {
     pub filter: String,
     pub qos: QoS,
 }

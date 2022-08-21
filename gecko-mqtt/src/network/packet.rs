@@ -27,6 +27,10 @@ pub enum Error {
     PayloadRequired,
     #[error("Payload too large")]
     PayloadTooLarge,
+    #[error("Payload size incorrect")]
+    PayloadSizeIncorrect,
+    #[error("Unexpected packet type")]
+    UnexpectedPacketType,
 }
 
 #[derive(Debug, PartialEq, Eq)]

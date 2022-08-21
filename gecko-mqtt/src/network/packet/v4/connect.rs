@@ -19,7 +19,7 @@ pub struct Connect {
 }
 
 impl Connect {
-    pub(crate) fn read_from(mut stream: Bytes) -> Result<Self, Error> {
+    pub(crate) fn read(mut stream: Bytes) -> Result<Self, Error> {
         // 可变报头
         let protocol_name = packet::read_string(&mut stream)?;
         let protocol_level = packet::read_u8(&mut stream)?;
@@ -180,7 +180,7 @@ mod tests {
 
         let variable_header_index = fixed_header.fixed_header_len;
         connect_bytes.advance(variable_header_index);
-        let packet = Connect::read_from(connect_bytes).unwrap();
+        let packet = Connect::read(connect_bytes).unwrap();
 
         assert_eq!(
             packet,

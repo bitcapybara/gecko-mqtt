@@ -39,7 +39,7 @@ impl ClientConnection {
     /// 读取一个 packet
     async fn read_packet(&mut self) -> Result<Packet, Error> {
         loop {
-            let required = match Packet::read_from(&mut self.read) {
+            let required = match Packet::read(&mut self.read) {
                 Ok(packet) => return Ok(packet),
                 Err(packet::Error::InsufficientBytes(n)) => n,
                 Err(e) => return Err(Error::Packet(e)),
