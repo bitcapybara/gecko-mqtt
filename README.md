@@ -135,8 +135,16 @@ https://www.emqx.io/docs/zh/v5.0/design/design.html#%E7%B3%BB%E7%BB%9F%E6%9E%B6%
     * topic-filter -> node-id -> client-id
     * 集群所有节点保存？
 
-### TODO
+## TODO
 
 1. 单节点，内存实现
 2. 单节点，持久化实现
 3. raft 多节点，持久化实现
+
+## Metrics
+
+1. 服务端各种状态，由 router 维护
+2. 前端可以通过grpc接口获取状态，grpc接口通过 channel 向 router 请求 metrics 数据
+3. 客户端可以通过订阅 $SYS 相关主题获取 metrics 数据
+
+参考：https://www.emqx.io/docs/zh/v4.3/advanced/system-topic.html#%E6%94%B6%E5%8F%91%E6%B5%81%E9%87%8F-%E6%8A%A5%E6%96%87-%E6%B6%88%E6%81%AF%E7%BB%9F%E8%AE%A1
