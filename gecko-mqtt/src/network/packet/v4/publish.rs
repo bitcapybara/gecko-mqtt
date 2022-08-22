@@ -21,7 +21,6 @@ pub struct Publish {
 }
 
 impl Publish {
-    
     fn len(&self) -> usize {
         let mut len = 2 + self.topic.len();
         if self.qos != QoS::AtMostOnce && self.packet_id != 0 {
