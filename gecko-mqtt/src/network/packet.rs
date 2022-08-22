@@ -33,8 +33,10 @@ pub enum Error {
     UnexpectedPacketType,
     #[error("Miss packet id")]
     MissPacketId,
-    #[error("Publish topic with wildcard")]
-    PublishTopicWithWildcard,
+    #[error("Invalid publish topic")]
+    InvalidPublishTopic,
+    #[error("Invalid subscribe filter")]
+    InvalidSubscribeFilter,
 }
 
 #[derive(Debug, PartialEq, Eq)]
