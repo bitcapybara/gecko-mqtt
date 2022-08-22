@@ -2,6 +2,7 @@ use bytes::{BufMut, BytesMut};
 
 use crate::network::packet::{self, Error};
 
+#[derive(Debug)]
 pub struct PubAck {
     /// 包 id
     pub packet_id: u16,
