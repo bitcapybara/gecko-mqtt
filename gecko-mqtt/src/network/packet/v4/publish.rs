@@ -1,6 +1,6 @@
 use bytes::{BufMut, Bytes, BytesMut};
 
-use crate::network::packet::{self, Error, QoS};
+use crate::network::{packet::{self, Error, QoS}, topic::{topic_has_wildcards, self}};
 
 use super::FixedHeader;
 
@@ -38,6 +38,9 @@ impl Publish {
         let retain = (byte1 & 0b0001) != 0;
 
         let topic = packet::read_string(&mut stream)?;
+        if topic::topic_has_wildcards(&topic) {
+            return Err(Error::PublishTopicWithWildcard)
+        }
         let packet_id = match qos {
             QoS::AtMostOnce => 0,
             QoS::AtLeastOnce | QoS::ExactlyOnce => {
