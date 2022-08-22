@@ -54,7 +54,7 @@ pub enum PacketType {
 }
 
 #[derive(Debug)]
-struct FixedHeader {
+pub struct FixedHeader {
     /// 固定头的第一个字节，包含报文类型和flags
     byte1: u8,
     // 固定头的大小
@@ -146,7 +146,7 @@ impl FixedHeader {
 pub enum Packet {
     Connect(Connect),
     ConnAck(ConnAck),
-    Publish,
+    Publish(Publish),
     PubAck,
     PubRel,
     PubComp,
@@ -179,14 +179,15 @@ impl Packet {
         }
 
         // 完整的报文
-        let mut packet = packet.freeze();
+        let mut stream = packet.freeze();
         // 去掉固定头的报文
         let variable_header_index = fixed_header.fixed_header_len;
-        packet.advance(variable_header_index);
+        stream.advance(variable_header_index);
 
         let packet = match packet_type {
-            PacketType::Connect => Packet::Connect(Connect::read(packet)?),
-            PacketType::Subscribe => Packet::Subscribe(Subscribe::read(packet)?),
+            PacketType::Connect => Packet::Connect(Connect::read(stream)?),
+            PacketType::Subscribe => Packet::Subscribe(Subscribe::read(stream)?),
+            PacketType::Publish => Packet::Publish(Publish::read(fixed_header, stream)?),
             _ => return Err(Error::UnexpectedPacketType),
         };
 
@@ -198,6 +199,7 @@ impl Packet {
             Packet::ConnAck(ack) => ack.write(stream),
             Packet::PingResp => PingResp.write(stream),
             Packet::SubAck(ack) => ack.write(stream),
+            Packet::Publish(publish) => publish.write(stream),
             _ => todo!(),
         }
     }
@@ -207,7 +209,7 @@ impl Packet {
         match self {
             Packet::Connect(_) => PacketType::Connect,
             Packet::ConnAck(_) => PacketType::ConnAck,
-            Packet::Publish => PacketType::Publish,
+            Packet::Publish(_) => PacketType::Publish,
             Packet::PubAck => PacketType::PubAck,
             Packet::PubRel => PacketType::PubRel,
             Packet::PubComp => PacketType::PubComp,

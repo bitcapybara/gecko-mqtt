@@ -23,6 +23,7 @@ use self::v4::{connack, ConnAck, ConnectReturnCode};
 
 pub(crate) mod conn;
 pub(crate) mod packet;
+pub(crate) mod topic;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -115,6 +116,7 @@ impl<H: Hook> ClientEventLoop<H> {
     /// * connect 报文已在 new 方法中处理过，这里如果收到 connect 报文，视为非法连接
     /// * 从 conn socket 网络层获取 packet 数据，发送给 router
     /// * 接收 router 的回复，写入 conn socket 网络层
+    /// TODO 增加 Disconnect 错误类型，遇到这种错误，需要退出事件循环，关闭网络连接
     pub(crate) async fn start(mut self) -> Result<(), Error> {
         loop {
             select! {

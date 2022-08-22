@@ -8,7 +8,8 @@ use tokio::{
 
 use crate::{
     network::v4::{
-        ConnAck, Connect, ConnectReturnCode, Packet, SubAck, Subscribe, SubscribeReasonCode,
+        ConnAck, Connect, ConnectReturnCode, Packet, Publish, SubAck, Subscribe,
+        SubscribeReasonCode,
     },
     Hook,
 };
@@ -75,6 +76,9 @@ impl<H: Hook> Router<H> {
                         Packet::Subscribe(subscribe) => {
                             self.handle_subscribe(&client_id, subscribe).await?
                         }
+                        Packet::Publish(publish) => {
+                            self.handle_publish(&client_id, publish).await?
+                        }
                         _ => return Err(Error::UnexpectedPacket),
                     }
                 }
@@ -126,6 +130,8 @@ impl<H: Hook> Router<H> {
         Ok(())
     }
 
+    /// 处理订阅请求
+    /// TODO 给订阅的客户端发送所有匹配的保留消息
     async fn handle_subscribe(
         &mut self,
         client_id: &str,
@@ -151,5 +157,10 @@ impl<H: Hook> Router<H> {
         } else {
             Err(Error::SessionNotFound)
         }
+    }
+
+    /// 处理 publish 请求
+    async fn handle_publish(&mut self, _client_id: &str, _publish: Publish) -> Result<(), Error> {
+        todo!()
     }
 }

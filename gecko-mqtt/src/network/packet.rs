@@ -31,6 +31,8 @@ pub enum Error {
     PayloadSizeIncorrect,
     #[error("Unexpected packet type")]
     UnexpectedPacketType,
+    #[error("Miss packet id")]
+    MissPacketId,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -123,7 +125,11 @@ fn write_remaining_length(stream: &mut BytesMut, len: usize) -> Result<usize, Er
     Ok(count)
 }
 
-/// taopic 是否含有通配符
-pub fn topic_has_wildcards(s: &str) -> bool {
-    s.contains('+') || s.contains('#')
+fn write_bytes(stream: &mut BytesMut, bytes: &[u8]) {
+    stream.put_u16(bytes.len() as u16);
+    stream.extend_from_slice(bytes);
+}
+
+fn write_string(stream: &mut BytesMut, string: &str) {
+    write_bytes(stream, string.as_bytes())
 }

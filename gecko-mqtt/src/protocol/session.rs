@@ -5,7 +5,7 @@ use tokio::sync::mpsc::{error::SendError, Sender};
 
 use crate::network::{
     packet::{self, QoS},
-    v4,
+    topic, v4,
 };
 
 use super::Outgoing;
@@ -66,12 +66,12 @@ impl Session {
     /// 添加订阅topic，如果相同则覆盖
     /// 即，同一个会话中，不可以有多个一样的 topic filter
     pub fn insert_filter(&mut self, filter: (&str, QoS)) {
-        let topic = filter.0.into();
+        let topic_filter = filter.0.into();
         let qos = filter.1;
-        if packet::topic_has_wildcards(filter.0) {
-            self.wild_subscriptions.insert(topic, qos);
+        if topic::topic_has_wildcards(filter.0) {
+            self.wild_subscriptions.insert(topic_filter, qos);
         } else {
-            self.concrete_subscriptions.insert(topic, qos);
+            self.concrete_subscriptions.insert(topic_filter, qos);
         }
     }
 
