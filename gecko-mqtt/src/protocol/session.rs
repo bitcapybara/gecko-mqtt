@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
-use packet::v4::Packet;
+use packet::v4::{Packet, Publish};
 use tokio::sync::mpsc::{error::SendError, Sender};
 
 use crate::network::{
     packet::{self, QoS},
-    topic, v4,
+    topic,
 };
 
 use super::Outgoing;
@@ -34,7 +34,8 @@ pub struct Session {
     /// 订阅的主题（包含通配符）
     wild_subscriptions: HashMap<String, QoS>,
     /// 保存发送给客户端但是还没有删除的消息（QoS1, QoS2）(持久化)
-    messages: Vec<v4::Publish>,
+    /// TODO 过期处理？
+    messages: HashMap<u16, Publish>,
 
     /// 发送给客户端的消息
     pub conn_tx: Option<Sender<Outgoing>>,
@@ -47,7 +48,7 @@ impl Session {
             clean_session,
             concrete_subscriptions: HashMap::new(),
             wild_subscriptions: HashMap::new(),
-            messages: Vec::new(),
+            messages: HashMap::new(),
             conn_tx: Some(conn_tx),
         }
     }
@@ -82,5 +83,51 @@ impl Session {
         } else {
             Err(Error::SessionConnTxNotFound)
         }
+    }
+
+    /// 匹配 publish 的 topic
+    ///
+    /// * qos0: publish
+    /// * qos1: store, publish, puback
+    /// * qos2: store, pubrec
+    pub async fn handle_publish(&mut self, publish: &Publish) -> Result<Option<QoS>, Error> {
+        let Publish {
+            qos,
+            topic,
+            packet_id,
+            ..
+        } = publish;
+
+        // 匹配
+        let mut downgrade_qos = None;
+        if let Some(sub_qos) = self.concrete_subscriptions.get(topic) {
+            downgrade_qos.replace(sub_qos.downgrade(qos));
+        }
+
+        if downgrade_qos.is_none() {
+            for filter in self.wild_subscriptions.iter() {
+                if topic::matches(topic, filter.0) {
+                    downgrade_qos.replace(filter.1.downgrade(qos));
+                    break;
+                }
+            }
+        }
+
+        if let Some(qos) = downgrade_qos {
+            match qos {
+                QoS::AtMostOnce => {
+                    self.send_packet(Packet::Publish(publish.clone())).await?;
+                }
+                QoS::AtLeastOnce => {
+                    self.messages.insert(packet_id.to_owned(), publish.clone());
+                    self.send_packet(Packet::Publish(publish.clone())).await?;
+                }
+                QoS::ExactlyOnce => {
+                    self.messages.insert(packet_id.to_owned(), publish.clone());
+                }
+            }
+        }
+
+        Ok(downgrade_qos.cloned())
     }
 }

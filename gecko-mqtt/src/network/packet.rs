@@ -49,12 +49,25 @@ pub enum Protocol {
 
 /// 服务质量
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[allow(clippy::enum_variant_names)]
 pub enum QoS {
     AtMostOnce = 0,
     AtLeastOnce,
     ExactlyOnce,
+}
+
+impl QoS {
+    pub fn downgrade<'a>(&'a self, qos: &'a QoS) -> &QoS {
+        match self {
+            QoS::AtMostOnce => self,
+            QoS::AtLeastOnce => match qos {
+                QoS::AtMostOnce => qos,
+                _ => self,
+            },
+            QoS::ExactlyOnce => qos,
+        }
+    }
 }
 
 impl TryFrom<u8> for QoS {

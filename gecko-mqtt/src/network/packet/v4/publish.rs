@@ -2,12 +2,12 @@ use bytes::{BufMut, Bytes, BytesMut};
 
 use crate::network::{
     packet::{self, Error, QoS},
-    topic::{self},
+    topic,
 };
 
 use super::FixedHeader;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Publish {
     /// 客户端是否之前发送过此消息（是否重新投递）
     pub dup: bool,

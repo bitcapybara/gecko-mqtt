@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{cmp::max, collections::HashMap, sync::Arc};
 
 use log::warn;
 use tokio::{
@@ -7,9 +7,12 @@ use tokio::{
 };
 
 use crate::{
-    network::v4::{
-        ConnAck, Connect, ConnectReturnCode, Packet, Publish, SubAck, Subscribe,
-        SubscribeReasonCode,
+    network::{
+        packet::QoS,
+        v4::{
+            ConnAck, Connect, ConnectReturnCode, Packet, PubAck, PubRec, Publish, SubAck,
+            Subscribe, SubscribeReasonCode,
+        },
     },
     Hook,
 };
@@ -38,6 +41,8 @@ pub(crate) struct Router<H: Hook> {
     router_rx: Receiver<Incoming>,
     /// 管理客户端连接信息，key = client_id
     sessions: HashMap<String, Session>,
+    /// 保留消息
+    retains: Vec<Publish>,
     /// 钩子函数
     hook: Arc<H>,
 }
@@ -47,6 +52,7 @@ impl<H: Hook> Router<H> {
         Self {
             router_rx,
             sessions: HashMap::new(),
+            retains: Vec::new(),
             hook,
         }
     }
@@ -160,7 +166,35 @@ impl<H: Hook> Router<H> {
     }
 
     /// 处理 publish 请求
-    async fn handle_publish(&mut self, _client_id: &str, _publish: Publish) -> Result<(), Error> {
-        todo!()
+    async fn handle_publish(&mut self, client_id: &str, publish: Publish) -> Result<(), Error> {
+        let Publish {
+            retain, packet_id, ..
+        } = publish;
+
+        // 保留消息，router 保存一份
+        if retain {
+            self.retains.push(publish.clone());
+        }
+
+        // 发送给所有 session 进行匹配处理
+        let mut max_qos = QoS::AtMostOnce;
+        for session in self.sessions.values_mut() {
+            if let Some(qos) = session.handle_publish(&publish).await? {
+                max_qos = max(max_qos, qos);
+            }
+        }
+
+        let packet = match max_qos {
+            QoS::AtMostOnce => None,
+            QoS::AtLeastOnce => Some(Packet::PubAck(PubAck { packet_id })),
+            QoS::ExactlyOnce => Some(Packet::PubRec(PubRec { packet_id })),
+        };
+
+        if let Some(packet) = packet {
+            let session = self.sessions.get(client_id).ok_or(Error::SessionNotFound)?;
+            session.send_packet(packet).await?;
+        }
+
+        Ok(())
     }
 }
