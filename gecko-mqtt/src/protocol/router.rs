@@ -10,8 +10,8 @@ use crate::{
     network::{
         packet::QoS,
         v4::{
-            ConnAck, Connect, ConnectReturnCode, Packet, PubAck, PubRec, Publish, SubAck,
-            Subscribe, SubscribeReasonCode,
+            ConnAck, Connect, ConnectReturnCode, Packet, PubAck, PubComp, PubRec, PubRel, Publish,
+            SubAck, Subscribe, SubscribeReasonCode,
         },
     },
     Hook,
@@ -84,6 +84,16 @@ impl<H: Hook> Router<H> {
                         }
                         Packet::Publish(publish) => {
                             self.handle_publish(&client_id, publish).await?
+                        }
+                        Packet::PubAck(puback) => self.handle_publish_ack(&client_id, puback),
+                        Packet::PubRel(pubrel) => {
+                            self.handle_publish_release(&client_id, pubrel).await?
+                        }
+                        Packet::PubRec(pubrec) => {
+                            self.handle_publish_receive(&client_id, pubrec).await?
+                        }
+                        Packet::PubComp(pubcomp) => {
+                            self.handle_publish_complete(&client_id, pubcomp)
                         }
                         _ => return Err(Error::UnexpectedPacket),
                     }
@@ -213,10 +223,51 @@ impl<H: Hook> Router<H> {
         Ok(())
     }
 
+    /// 给所有符合条件的客户端发送消息
     async fn publish_message(&mut self, publish: &Publish) -> Result<(), Error> {
         for session in self.sessions.values_mut() {
             session.publish_message(publish).await?;
         }
         Ok(())
+    }
+
+    /// 处理 puback
+    fn handle_publish_ack(&mut self, client_id: &str, puback: PubAck) {
+        if let Some(session) = self.sessions.get_mut(client_id) {
+            session.remove_published(puback.packet_id);
+        }
+    }
+
+    /// 处理 pubrel
+    async fn handle_publish_release(
+        &mut self,
+        client_id: &str,
+        pubrel: PubRel,
+    ) -> Result<(), Error> {
+        if let Some(session) = self.sessions.get_mut(client_id) {
+            session.publish_release(pubrel).await?;
+        }
+
+        Ok(())
+    }
+
+    /// 处理 pubrec
+    async fn handle_publish_receive(
+        &mut self,
+        client_id: &str,
+        pubrec: PubRec,
+    ) -> Result<(), Error> {
+        if let Some(session) = self.sessions.get_mut(client_id) {
+            session.publish_receive(pubrec).await?;
+        }
+
+        Ok(())
+    }
+
+    /// 处理 pubcomp
+    fn handle_publish_complete(&mut self, client_id: &str, pubcomp: PubComp) {
+        if let Some(session) = self.sessions.get_mut(client_id) {
+            session.publish_complete(pubcomp);
+        }
     }
 }

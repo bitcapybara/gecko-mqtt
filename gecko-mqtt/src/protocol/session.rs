@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use packet::v4::{Packet, Publish};
+use packet::v4::{Packet, PubComp, PubRec, PubRel, Publish};
 use tokio::sync::mpsc::{error::SendError, Sender};
 
 use crate::network::{
@@ -102,6 +102,10 @@ impl Session {
         self.messages_receive.insert(packet_id);
     }
 
+    pub fn remove_published(&mut self, packet_id: u16) {
+        self.messages_publish.remove(&packet_id);
+    }
+
     /// 匹配 publish 的 topic
     ///
     /// * qos0: publish
@@ -149,5 +153,33 @@ impl Session {
         }
 
         Ok(())
+    }
+
+    pub async fn publish_release(&mut self, pubrel: PubRel) -> Result<(), Error> {
+        if self.messages_receive.remove(&pubrel.packet_id) {
+            self.send_packet(Packet::PubComp(PubComp {
+                packet_id: pubrel.packet_id,
+            }))
+            .await?;
+        }
+        Ok(())
+    }
+
+    pub async fn publish_receive(&mut self, pubrec: PubRec) -> Result<(), Error> {
+        if self.messages_publish.contains_key(&pubrec.packet_id) {
+            self.messages_release.insert(pubrec.packet_id);
+            self.send_packet(Packet::PubRel(PubRel {
+                packet_id: pubrec.packet_id,
+            }))
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    pub fn publish_complete(&mut self, pubcomp: PubComp) {
+        if self.messages_release.remove(&pubcomp.packet_id) {
+            self.messages_publish.remove(&pubcomp.packet_id);
+        }
     }
 }
