@@ -158,7 +158,6 @@ impl<H: Hook> Router<H> {
                 packet_id,
                 return_codes,
             };
-
             Ok(session.send_packet(Packet::SubAck(ack)).await?)
         } else {
             Err(Error::SessionNotFound)
@@ -166,13 +165,16 @@ impl<H: Hook> Router<H> {
     }
 
     /// 处理 publish 请求
-    /// 
+    ///
     /// QoS0：发送端 和 接受端 均不保存数据
     /// QoS1：发送端 保存数据，接受端 不保存
     /// QoS2：发送端 和 接受端 均保存数据
     async fn handle_publish(&mut self, client_id: &str, publish: Publish) -> Result<(), Error> {
         let Publish {
-            retain, packet_id,qos, ..
+            retain,
+            packet_id,
+            qos,
+            ..
         } = publish;
 
         // 保留消息，router 保存一份
@@ -182,27 +184,39 @@ impl<H: Hook> Router<H> {
 
         // 回复 publisher
         match qos {
-            QoS::AtMostOnce => {},
+            QoS::AtMostOnce => {
+                // 给订阅端发送消息
+                self.publish_message(&publish).await?
+            }
             QoS::AtLeastOnce => {
                 if let Some(session) = self.sessions.get_mut(client_id) {
                     // broker 是接收端，不需要保存消息，直接发送 puback
-                    session.send_packet(Packet::PubAck(PubAck{ packet_id })).await?;
+                    session
+                        .send_packet(Packet::PubAck(PubAck { packet_id }))
+                        .await?;
                     // 给订阅端发送消息
-                    for session in self.sessions.values_mut() {
-                        session.publish_message(&publish).await?;
-                    }
+                    self.publish_message(&publish).await?
                 }
-            },
+            }
             QoS::ExactlyOnce => {
                 if let Some(session) = self.sessions.get_mut(client_id) {
                     // 保存起来，下次接收到 pubrel 消息时删除
                     session.insert_received(packet_id);
                     // 发送 pubrec
-                    session.send_packet(Packet::PubRec(PubRec{ packet_id })).await?;
+                    session
+                        .send_packet(Packet::PubRec(PubRec { packet_id }))
+                        .await?;
                 }
-            },
+            }
         }
 
+        Ok(())
+    }
+
+    async fn publish_message(&mut self, publish: &Publish) -> Result<(), Error> {
+        for session in self.sessions.values_mut() {
+            session.publish_message(publish).await?;
+        }
         Ok(())
     }
 }

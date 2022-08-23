@@ -93,7 +93,7 @@ impl Session {
         }
     }
 
-    /// 
+    ///
     pub fn insert_received(&mut self, packet_id: u16) {
         self.messages_receive.insert(packet_id);
     }
@@ -115,7 +115,7 @@ impl Session {
             ..
         } = publish;
 
-        // 匹配
+        // 查询是否匹配
         let mut matched = self.concrete_subscriptions.contains_key(topic);
         if !matched {
             for filter in self.wild_subscriptions.iter() {
@@ -126,6 +126,7 @@ impl Session {
             }
         }
 
+        // 根据订阅的qos处理
         if matched {
             match qos {
                 QoS::AtMostOnce => {
@@ -134,12 +135,15 @@ impl Session {
                 }
                 QoS::AtLeastOnce => {
                     // 保存起来，等待接收到 puback/pubcomp 后删除
-                    self.messages_publish.insert(packet_id.to_owned(), publish.clone());
+                    self.messages_publish
+                        .insert(packet_id.to_owned(), publish.clone());
                     // 发送给订阅的客户端
                     self.send_packet(Packet::Publish(publish.clone())).await?;
                 }
                 QoS::ExactlyOnce => {
-                    self.messages_publish.insert(packet_id.to_owned(), publish.clone());
+                    // 保存数据，收到 pubrel 后再发送
+                    self.messages_publish
+                        .insert(packet_id.to_owned(), publish.clone());
                 }
             }
         }

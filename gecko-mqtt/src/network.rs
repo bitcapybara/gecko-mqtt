@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 pub(crate) use conn::{ClientConnection, PeerConnection};
 pub(crate) use packet::v4;
-use packet::v4::{Packet, PacketType};
+
 use tokio::{
     net::TcpStream,
     select,
@@ -124,20 +124,10 @@ impl<H: Hook> ClientEventLoop<H> {
                 reads = self.conn.read_more(self.keepalive) => {
                     match reads {
                         Ok(packets) => {
-                            let mut data:Vec<Packet> = Vec::with_capacity(packets.len());
-                            for packet in packets {
-                                match packet.packet_type() {
-                                    // ping 请求自己处理
-                                    PacketType::PingReq => self.conn_tx.send(Outgoing::Data(Packet::PingResp)).await?,
-                                    _ => data.push(packet),
-                                }
-                            }
-                            // 其他请求发送给 router 处理
                             self.router_tx.send(Incoming::Data{
                                 client_id: self.client_id.clone(),
-                                packets: data
+                                packets
                             }).await?;
-
                         },
                         Err(e) => return Err(network::Error::Connection(e)),
                     }

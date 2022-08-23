@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use log::{error, info, trace};
+use log::{debug, error, info};
 use tokio::{net::TcpListener, sync::mpsc};
 
 use crate::{
@@ -41,7 +41,7 @@ impl Broker {
         let (router_tx, router_rx) = mpsc::channel(1000);
         let router_hook = hook.clone();
         tokio::spawn(async move {
-            trace!("start router loop");
+            debug!("start router loop");
             let router = Router::new(router_hook, router_rx);
             if let Err(e) = router.start().await {
                 error!("router exit error: {:?}", e)
@@ -52,7 +52,7 @@ impl Broker {
         let (peer_tx, peer_rx) = mpsc::channel(1000);
         let grpc_addr = self.peer_listen_addr.parse().unwrap();
         tokio::spawn(async move {
-            trace!("start peer server loop");
+            debug!("start peer server loop");
             tonic::transport::Server::builder()
                 .add_service(PeerServer::new_server(peer_tx))
                 .serve(grpc_addr)
@@ -63,7 +63,7 @@ impl Broker {
         // 开启 peer conn 事件循环
         let peer_router_tx = router_tx.clone();
         tokio::spawn(async move {
-            trace!("start peer conn event loop");
+            debug!("start peer conn event loop");
             let conn = PeerConnection::new(peer_rx);
             if let Err(e) = conn.start(peer_router_tx) {
                 error!("eventloop on peer conn exit error: {0}", e)
@@ -72,7 +72,7 @@ impl Broker {
 
         // 开启客户端连接监听
         let listener = TcpListener::bind(&self.client_listen_addr).await.unwrap();
-        trace!("start client server loop");
+        debug!("start client server loop");
         loop {
             // 获取到连接
             let (stream, addr) = match listener.accept().await {

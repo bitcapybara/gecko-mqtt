@@ -41,12 +41,33 @@ impl ClientConnection {
         loop {
             let required = match Packet::read(&mut self.read) {
                 Ok(packet) => return Ok(packet),
-                Err(packet::Error::InsufficientBytes(n)) => n,
+                Err(packet::Error::InsufficientBytes(required)) => required,
                 Err(e) => return Err(Error::Packet(e)),
             };
 
             // 数据不足，读取更多数据
             self.read_bytes(required).await?;
+        }
+    }
+
+    pub async fn collect(&mut self) -> Result<Vec<Packet>, Error> {
+        let mut count = 0;
+        let mut packets = Vec::new();
+        loop {
+            match Packet::read(&mut self.read) {
+                Ok(packet) => {
+                    count += 1;
+                    match packet.packet_type() {
+                        PacketType::PingReq => self.write_packet(Packet::PingResp).await?,
+                        _ => packets.push(packet),
+                    }
+                }
+                Err(packet::Error::InsufficientBytes(_)) if count > 0 => return Ok(packets),
+                Err(packet::Error::InsufficientBytes(required)) => {
+                    self.read_bytes(required).await?
+                }
+                Err(e) => return Err(Error::Packet(e)),
+            }
         }
     }
 
@@ -74,30 +95,10 @@ impl ClientConnection {
         &mut self,
         timeout: time::Duration,
     ) -> Result<Vec<Packet>, Error> {
-        let mut packets = Vec::new();
-        loop {
-            // 等待 keepalive 时间内至少有完整的包进来
-            // 超时直接返回错误
-            let timeout = time::timeout(timeout, self.read_packet()).await?;
-
-            // 捕获 packet 读取错误
-            match timeout {
-                Ok(packet) => {
-                    let packet_type = packet.packet_type();
-
-                    match packet_type {
-                        PacketType::PingReq => self.write_packet(Packet::PingResp).await?,
-                        _ => packets.push(packet),
-                    }
-                }
-                Err(Error::Packet(packet::Error::InsufficientBytes(_))) if !packets.is_empty() => {
-                    return Ok(packets)
-                }
-                Err(Error::Packet(packet::Error::InsufficientBytes(required))) => {
-                    self.read_bytes(required).await?
-                }
-                Err(e) => return Err(e),
-            }
+        if !timeout.is_zero() {
+            time::timeout(timeout, self.collect()).await?
+        } else {
+            self.collect().await
         }
     }
 

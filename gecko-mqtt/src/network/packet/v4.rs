@@ -162,7 +162,13 @@ pub enum Packet {
 
 impl Packet {
     pub(crate) fn read(stream: &mut BytesMut) -> Result<Self, Error> {
+        let stream_len = stream.len();
         let fixed_header: FixedHeader = FixedHeader::read_from(stream.iter())?;
+
+        let packet_len = fixed_header.packet_len();
+        if stream_len < packet_len {
+            return Err(Error::InsufficientBytes(packet_len - stream_len));
+        }
 
         // 根据固定头给出的长度信息，取出整个报文字节（包含报文头）
         // split_to 方法会更新 stream
