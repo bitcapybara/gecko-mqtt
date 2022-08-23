@@ -1,4 +1,4 @@
-use std::{cmp::max, collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use log::warn;
 use tokio::{
@@ -166,9 +166,13 @@ impl<H: Hook> Router<H> {
     }
 
     /// 处理 publish 请求
+    /// 
+    /// QoS0：发送端 和 接受端 均不保存数据
+    /// QoS1：发送端 保存数据，接受端 不保存
+    /// QoS2：发送端 和 接受端 均保存数据
     async fn handle_publish(&mut self, client_id: &str, publish: Publish) -> Result<(), Error> {
         let Publish {
-            retain, packet_id, ..
+            retain, packet_id,qos, ..
         } = publish;
 
         // 保留消息，router 保存一份
@@ -176,23 +180,27 @@ impl<H: Hook> Router<H> {
             self.retains.push(publish.clone());
         }
 
-        // 发送给所有 session 进行匹配处理
-        let mut max_qos = QoS::AtMostOnce;
-        for session in self.sessions.values_mut() {
-            if let Some(qos) = session.handle_publish(&publish).await? {
-                max_qos = max(max_qos, qos);
-            }
-        }
-
-        let packet = match max_qos {
-            QoS::AtMostOnce => None,
-            QoS::AtLeastOnce => Some(Packet::PubAck(PubAck { packet_id })),
-            QoS::ExactlyOnce => Some(Packet::PubRec(PubRec { packet_id })),
-        };
-
-        if let Some(packet) = packet {
-            let session = self.sessions.get(client_id).ok_or(Error::SessionNotFound)?;
-            session.send_packet(packet).await?;
+        // 回复 publisher
+        match qos {
+            QoS::AtMostOnce => {},
+            QoS::AtLeastOnce => {
+                if let Some(session) = self.sessions.get_mut(client_id) {
+                    // broker 是接收端，不需要保存消息，直接发送 puback
+                    session.send_packet(Packet::PubAck(PubAck{ packet_id })).await?;
+                    // 给订阅端发送消息
+                    for session in self.sessions.values_mut() {
+                        session.publish_message(&publish).await?;
+                    }
+                }
+            },
+            QoS::ExactlyOnce => {
+                if let Some(session) = self.sessions.get_mut(client_id) {
+                    // 保存起来，下次接收到 pubrel 消息时删除
+                    session.insert_received(packet_id);
+                    // 发送 pubrec
+                    session.send_packet(Packet::PubRec(PubRec{ packet_id })).await?;
+                }
+            },
         }
 
         Ok(())

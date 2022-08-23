@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use packet::v4::{Packet, Publish};
 use tokio::sync::mpsc::{error::SendError, Sender};
@@ -34,8 +34,12 @@ pub struct Session {
     /// 订阅的主题（包含通配符）
     wild_subscriptions: HashMap<String, QoS>,
     /// 保存发送给客户端但是还没有删除的消息（QoS1, QoS2）(持久化)
-    /// TODO 过期处理？
-    messages: HashMap<u16, Publish>,
+    /// 接收到 puback/pubcomp 后删除
+    messages_publish: HashMap<u16, Publish>,
+    /// 在收到 qos2 publish 的消息时保存，在收到 qos2 pubrelease 的消息后删除
+    messages_receive: HashSet<u16>,
+    /// 在收到 qos2 pubrec 的消息时保存，在收到 qos2 pubcomp 的消息后删除
+    messages_release: HashSet<u16>,
 
     /// 发送给客户端的消息
     pub conn_tx: Option<Sender<Outgoing>>,
@@ -48,7 +52,9 @@ impl Session {
             clean_session,
             concrete_subscriptions: HashMap::new(),
             wild_subscriptions: HashMap::new(),
-            messages: HashMap::new(),
+            messages_publish: HashMap::new(),
+            messages_receive: HashSet::new(),
+            messages_release: HashSet::new(),
             conn_tx: Some(conn_tx),
         }
     }
@@ -59,7 +65,9 @@ impl Session {
             clean_session,
             concrete_subscriptions: self.concrete_subscriptions,
             wild_subscriptions: self.wild_subscriptions,
-            messages: self.messages,
+            messages_publish: self.messages_publish,
+            messages_receive: self.messages_receive,
+            messages_release: self.messages_release,
             conn_tx: Some(conn_tx),
         }
     }
@@ -85,12 +93,21 @@ impl Session {
         }
     }
 
+    /// 
+    pub fn insert_received(&mut self, packet_id: u16) {
+        self.messages_receive.insert(packet_id);
+    }
+
+    pub fn remove_received(&mut self, packet_id: u16) {
+        self.messages_receive.insert(packet_id);
+    }
+
     /// 匹配 publish 的 topic
     ///
     /// * qos0: publish
     /// * qos1: store, publish, puback
     /// * qos2: store, pubrec
-    pub async fn handle_publish(&mut self, publish: &Publish) -> Result<Option<QoS>, Error> {
+    pub async fn publish_message(&mut self, publish: &Publish) -> Result<(), Error> {
         let Publish {
             qos,
             topic,
@@ -99,35 +116,34 @@ impl Session {
         } = publish;
 
         // 匹配
-        let mut downgrade_qos = None;
-        if let Some(sub_qos) = self.concrete_subscriptions.get(topic) {
-            downgrade_qos.replace(sub_qos.downgrade(qos));
-        }
-
-        if downgrade_qos.is_none() {
+        let mut matched = self.concrete_subscriptions.contains_key(topic);
+        if !matched {
             for filter in self.wild_subscriptions.iter() {
                 if topic::matches(topic, filter.0) {
-                    downgrade_qos.replace(filter.1.downgrade(qos));
+                    matched = true;
                     break;
                 }
             }
         }
 
-        if let Some(qos) = downgrade_qos {
+        if matched {
             match qos {
                 QoS::AtMostOnce => {
+                    // 发送给订阅的客户端
                     self.send_packet(Packet::Publish(publish.clone())).await?;
                 }
                 QoS::AtLeastOnce => {
-                    self.messages.insert(packet_id.to_owned(), publish.clone());
+                    // 保存起来，等待接收到 puback/pubcomp 后删除
+                    self.messages_publish.insert(packet_id.to_owned(), publish.clone());
+                    // 发送给订阅的客户端
                     self.send_packet(Packet::Publish(publish.clone())).await?;
                 }
                 QoS::ExactlyOnce => {
-                    self.messages.insert(packet_id.to_owned(), publish.clone());
+                    self.messages_publish.insert(packet_id.to_owned(), publish.clone());
                 }
             }
         }
 
-        Ok(downgrade_qos.cloned())
+        Ok(())
     }
 }
