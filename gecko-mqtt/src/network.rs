@@ -31,8 +31,6 @@ pub enum Error {
     UnexpectedRouterMessage,
     #[error("Connection error: {0}")]
     Connection(#[from] conn::Error),
-    #[error("Packet error: {0}")]
-    Packet(#[from] packet::Error),
     #[error("First connect fail")]
     FirstConnectFailed(connack::ConnectReturnCode),
     #[error("Send message to router error: {0}")]

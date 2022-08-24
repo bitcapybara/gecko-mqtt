@@ -100,6 +100,10 @@ impl<H: Hook> Router<H> {
                 }
                 Ok(())
             }
+            Incoming::Disconnect {
+                client_id,
+                exec_will,
+            } => self.handle_disconnect(&client_id, exec_will).await,
         }
     }
 
@@ -269,5 +273,11 @@ impl<H: Hook> Router<H> {
         if let Some(session) = self.sessions.get_mut(client_id) {
             session.publish_complete(pubcomp);
         }
+    }
+
+    /// 处理客户端断开连接事件
+    /// TODO session 过期删除？
+    async fn handle_disconnect(&mut self, _client_id: &str, _exec_will: bool) -> Result<(), Error> {
+        todo!()
     }
 }

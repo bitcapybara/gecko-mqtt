@@ -22,6 +22,11 @@ pub enum Incoming {
         client_id: String,
         packets: Vec<Packet>,
     },
+    Disconnect {
+        client_id: String,
+        /// 客户端主动发送 disconnect 不需要执行 will
+        exec_will: bool,
+    },
 }
 
 /// router 发送给客户端的回复
