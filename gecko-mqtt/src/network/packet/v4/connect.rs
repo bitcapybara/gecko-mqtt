@@ -40,7 +40,7 @@ impl Connect {
         let last_will = LastWill::read(connect_flags, &mut stream)?;
         let login = Login::read(connect_flags, &mut stream)?;
 
-        Ok(Connect {
+        Ok(Self {
             protocol,
             keep_alive,
             client_id,

@@ -6,7 +6,6 @@ use bytes::{Buf, BytesMut};
 
 pub use connack::*;
 pub use connect::*;
-pub use disconnect::*;
 pub use pingresp::*;
 pub use puback::*;
 pub use pubcomp::*;
@@ -22,7 +21,6 @@ use super::Error;
 
 pub mod connack;
 pub mod connect;
-pub mod disconnect;
 pub mod pingresp;
 pub mod puback;
 pub mod pubcomp;
@@ -153,7 +151,7 @@ pub enum Packet {
     PubComp(PubComp),
     Subscribe(Subscribe),
     SubAck(SubAck),
-    Unsubscribe,
+    Unsubscribe(Unsubscribe),
     UnsubAck(UnsubAck),
     PingReq,
     PingResp,
@@ -223,7 +221,7 @@ impl Packet {
             Packet::PubComp(_) => PacketType::PubComp,
             Packet::Subscribe(_) => PacketType::Subscribe,
             Packet::SubAck(_) => PacketType::SubAck,
-            Packet::Unsubscribe => PacketType::Unsubscribe,
+            Packet::Unsubscribe(_) => PacketType::Unsubscribe,
             Packet::UnsubAck(_) => PacketType::UnsubAck,
             Packet::PingReq => PacketType::PingReq,
             Packet::PingResp => PacketType::PingResp,

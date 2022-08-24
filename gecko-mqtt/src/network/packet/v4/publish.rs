@@ -55,7 +55,7 @@ impl Publish {
             }
         };
 
-        Ok(Publish {
+        Ok(Self {
             dup,
             qos,
             retain,

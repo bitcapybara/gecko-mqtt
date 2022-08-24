@@ -21,7 +21,7 @@ impl PubComp {
             return Err(Error::MalformedPacket);
         }
 
-        Ok(PubComp { packet_id })
+        Ok(Self { packet_id })
     }
 
     pub fn write(&self, stream: &mut BytesMut) -> Result<(), Error> {

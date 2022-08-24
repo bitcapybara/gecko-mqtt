@@ -30,7 +30,7 @@ impl Subscribe {
             })
         }
 
-        Ok(Subscribe { packet_id, filters })
+        Ok(Self { packet_id, filters })
     }
 }
 

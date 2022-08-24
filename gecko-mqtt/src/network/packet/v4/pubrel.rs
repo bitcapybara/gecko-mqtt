@@ -22,7 +22,7 @@ impl PubRel {
             return Err(Error::MalformedPacket);
         }
 
-        Ok(PubRel { packet_id })
+        Ok(Self { packet_id })
     }
 
     pub fn write(&mut self, stream: &mut BytesMut) -> Result<(), Error> {
