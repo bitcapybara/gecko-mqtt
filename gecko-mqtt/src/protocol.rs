@@ -24,8 +24,6 @@ pub enum Incoming {
     },
     Disconnect {
         client_id: String,
-        /// 客户端主动发送 disconnect 不需要执行 will
-        exec_will: bool,
     },
 }
 

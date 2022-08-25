@@ -95,15 +95,13 @@ impl<H: Hook> Router<H> {
                         Packet::PubComp(pubcomp) => {
                             self.handle_publish_complete(&client_id, pubcomp)
                         }
+                        Packet::Disconnect => self.handle_disconnect(&client_id, false).await?,
                         _ => return Err(Error::UnexpectedPacket),
                     }
                 }
                 Ok(())
             }
-            Incoming::Disconnect {
-                client_id,
-                exec_will,
-            } => self.handle_disconnect(&client_id, exec_will).await,
+            Incoming::Disconnect { client_id } => self.handle_disconnect(&client_id, true).await,
         }
     }
 
@@ -277,6 +275,9 @@ impl<H: Hook> Router<H> {
 
     /// 处理客户端断开连接事件
     /// TODO session 过期删除？
+    /// exec_will true 表示客户端已异常退出，session 不需要再发送消息给 conn_tx
+    /// exec_will false 表示客户端主动断开连接，session 需要发送回 conn_tx 一个 Disconnect 消息使 conn 正常退出
+    /// session 处理完后，即可 drop 掉 conn_tx
     async fn handle_disconnect(&mut self, _client_id: &str, _exec_will: bool) -> Result<(), Error> {
         todo!()
     }

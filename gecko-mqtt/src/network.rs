@@ -40,7 +40,7 @@ pub enum Error {
 }
 
 pub struct ClientEventLoop<H: Hook> {
-    client_id: String,
+    pub client_id: String,
     conn: ClientConnection,
     router_tx: Sender<Incoming>,
     hook: Arc<H>,
@@ -135,6 +135,7 @@ impl<H: Hook> ClientEventLoop<H> {
                     match recv {
                         Some(outgoing) => match outgoing {
                             Outgoing::Data(packet) => self.conn.write_packet(packet).await?,
+                            Outgoing::Disconnect => return Ok(()),
                             _ => return Err(Error::UnexpectedRouterMessage)
                         },
                         None => todo!(),

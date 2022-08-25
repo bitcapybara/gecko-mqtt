@@ -6,7 +6,7 @@ use tokio::{net::TcpListener, sync::mpsc};
 use crate::{
     error::Error,
     network::{ClientEventLoop, PeerConnection},
-    protocol::Router,
+    protocol::{Incoming, Router},
     server::PeerServer,
     Hook, HookNoop,
 };
@@ -66,7 +66,7 @@ impl Broker {
             debug!("start peer conn event loop");
             let conn = PeerConnection::new(peer_rx);
             if let Err(e) = conn.start(peer_router_tx) {
-                error!("eventloop on peer conn exit error: {0}", e)
+                error!("eventloop on peer conn exit error: {:#}", e)
             }
         });
 
@@ -88,14 +88,23 @@ impl Broker {
             let client_router_tx = router_tx.clone();
             let client_hook = hook.clone();
             tokio::spawn(async move {
-                match ClientEventLoop::new(stream, client_router_tx, client_hook).await {
+                match ClientEventLoop::new(stream, client_router_tx.clone(), client_hook).await {
                     Ok(event_loop) => {
+                        let client_id = event_loop.client_id.clone();
                         if let Err(e) = event_loop.start().await {
-                            error!("eventloop on conn {0} exit error: {1:?}", addr, e)
+                            if let Err(e) = client_router_tx
+                                .send(Incoming::Disconnect {
+                                    client_id: client_id.clone(),
+                                })
+                                .await
+                            {
+                                error!("send disconnect to router channel error {:#}", e);
+                            }
+                            error!("eventloop on client {0} exit error: {1:#}", client_id, e)
                         }
                     }
                     Err(e) => {
-                        error!("eventloop read first connect packet err: {0}", e)
+                        error!("eventloop read first connect packet err: {:#}", e)
                     }
                 }
             });
