@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    time,
-};
+use std::collections::{HashMap, HashSet};
 
 use packet::v4::{Packet, PubComp, PubRec, PubRel, Publish};
 use tokio::sync::mpsc::{error::SendError, Sender};
@@ -84,6 +81,13 @@ impl Session {
             self.wild_subscriptions.insert(topic_filter, qos);
         } else {
             self.concrete_subscriptions.insert(topic_filter, qos);
+        }
+    }
+
+    pub fn remove_filters(&mut self, filters: &[String]) {
+        for filter in filters {
+            self.concrete_subscriptions.remove(filter);
+            self.wild_subscriptions.remove(filter);
         }
     }
 

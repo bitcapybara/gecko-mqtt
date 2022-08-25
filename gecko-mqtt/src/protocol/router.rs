@@ -15,7 +15,7 @@ use crate::{
         packet::QoS,
         v4::{
             ConnAck, Connect, ConnectReturnCode, Packet, PubAck, PubComp, PubRec, PubRel, Publish,
-            SubAck, Subscribe, SubscribeReasonCode,
+            SubAck, Subscribe, SubscribeReasonCode, UnsubAck, Unsubscribe,
         },
     },
     Hook,
@@ -105,6 +105,9 @@ impl<H: Hook> Router<H> {
                         Packet::PubComp(pubcomp) => {
                             self.handle_publish_complete(&client_id, pubcomp)
                         }
+                        Packet::Unsubscribe(unsubscribe) => {
+                            self.handle_unsubscribe(&client_id, unsubscribe).await?
+                        }
                         Packet::Disconnect => self.handle_client_disconnect(&client_id).await?,
                         _ => return Err(Error::UnexpectedPacket),
                     }
@@ -184,22 +187,40 @@ impl<H: Hook> Router<H> {
     ) -> Result<(), Error> {
         let Subscribe { packet_id, filters } = subscribe;
 
-        if let Some(session) = self.sessions.get_mut(client_id) {
-            let mut return_codes = Vec::with_capacity(filters.len());
-            for filter in filters {
-                // 添加到 session
-                session.insert_filter((&filter.path, filter.qos));
-                // TODO 添加一些校验，目前 sub 都是 success
-                return_codes.push(SubscribeReasonCode::Success(filter.qos));
-            }
+        match self.sessions.get_mut(client_id) {
+            Some(session) => {
+                let mut return_codes = Vec::with_capacity(filters.len());
+                for filter in filters {
+                    // 添加到 session
+                    session.insert_filter((&filter.path, filter.qos));
+                    // TODO 添加一些校验，目前 sub 都是 success
+                    return_codes.push(SubscribeReasonCode::Success(filter.qos));
+                }
 
-            let ack = SubAck {
-                packet_id,
-                return_codes,
-            };
-            Ok(session.send_packet(Packet::SubAck(ack)).await?)
-        } else {
-            Err(Error::SessionNotFound)
+                let ack = SubAck {
+                    packet_id,
+                    return_codes,
+                };
+                Ok(session.send_packet(Packet::SubAck(ack)).await?)
+            }
+            None => Err(Error::SessionNotFound),
+        }
+    }
+
+    async fn handle_unsubscribe(
+        &mut self,
+        client_id: &str,
+        unsubscribe: Unsubscribe,
+    ) -> Result<(), Error> {
+        let Unsubscribe { packet_id, filters } = unsubscribe;
+        match self.sessions.get_mut(client_id) {
+            Some(session) => {
+                session.remove_filters(&filters);
+                Ok(session
+                    .send_packet(Packet::UnsubAck(UnsubAck { packet_id }))
+                    .await?)
+            }
+            None => Err(Error::SessionNotFound),
         }
     }
 
