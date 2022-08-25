@@ -274,10 +274,13 @@ impl<H: Hook> Router<H> {
     }
 
     /// 处理客户端断开连接事件
-    /// TODO session 过期删除？
     /// exec_will true 表示客户端已异常退出，session 不需要再发送消息给 conn_tx
     /// exec_will false 表示客户端主动断开连接，session 需要发送回 conn_tx 一个 Disconnect 消息使 conn 正常退出
     /// session 处理完后，即可 drop 掉 conn_tx
+    /// 
+    /// TODO session 清理
+    /// 将需要清理的session放到一个队列中，队列顺序即代表需要清理的顺序
+    /// 当有新的连接进来时，取出队列头的session进行判断清理直到过期时间不满足清理条件，如此，保持内存中的session不会引起大的内存泄漏
     async fn handle_disconnect(&mut self, _client_id: &str, _exec_will: bool) -> Result<(), Error> {
         todo!()
     }
