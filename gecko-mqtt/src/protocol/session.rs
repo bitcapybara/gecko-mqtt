@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    time,
+};
 
 use packet::v4::{Packet, PubComp, PubRec, PubRel, Publish};
 use tokio::sync::mpsc::{error::SendError, Sender};
@@ -24,7 +27,7 @@ pub enum Error {
 /// 协议层会话和网络层连接通过 ConnectionEventLoop 进行通信
 pub struct Session {
     /// 客户端 id
-    client_id: String,
+    pub client_id: String,
     /// clean session（持久化）,immutable
     clean_session: bool,
     /// 过期配置

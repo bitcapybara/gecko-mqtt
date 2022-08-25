@@ -4,7 +4,7 @@ use std::{
     time,
 };
 
-use log::{info, warn};
+use log::warn;
 use tokio::{
     select,
     sync::mpsc::{error::SendError, Receiver, Sender},
@@ -47,7 +47,7 @@ pub(crate) struct Router<H: Hook> {
     /// session 清理
     /// 将需要清理的session放到一个队列中，队列顺序即代表需要清理的顺序
     /// 当有新的连接进来时，取出队列头的session进行判断清理直到过期时间不满足清理条件，如此，保持内存中的session不会引起大的内存泄漏
-    sessions: HashMap<String, Session>,
+    sessions: HashMap<String, Box<Session>>,
     /// 已经失效的 session，等待超时移除 (client_id, push_to_queue_time)
     ineffective_sessions: VecDeque<(String, time::Instant)>,
     /// 保留消息
@@ -105,13 +105,13 @@ impl<H: Hook> Router<H> {
                         Packet::PubComp(pubcomp) => {
                             self.handle_publish_complete(&client_id, pubcomp)
                         }
-                        Packet::Disconnect => self.handle_disconnect(&client_id).await?,
+                        Packet::Disconnect => self.handle_client_disconnect(&client_id).await?,
                         _ => return Err(Error::UnexpectedPacket),
                     }
                 }
                 Ok(())
             }
-            Incoming::Disconnect { client_id } => self.handle_client_aborted(&client_id).await,
+            Incoming::Disconnect { client_id } => self.handle_conn_disconnect(&client_id).await,
         }
     }
 
@@ -123,21 +123,25 @@ impl<H: Hook> Router<H> {
     ) -> Result<(), Error> {
         let client_id = connect.client_id;
         let clean_session = connect.clean_session;
-        // 拿出当前存储的 session
-        let session = if let Some(session) = self.sessions.remove(&client_id) {
-            if let Some(conn_tx) = &session.conn_tx {
-                if let Err(e) = conn_tx.try_send(Outgoing::Disconnect) {
-                    warn!("Failed to send disconnect packet to old session: {0}", e)
+        // 拿出当前存储的 session（没来得及清理）
+        let session = match self.sessions.remove(&client_id) {
+            Some(session) => {
+                // 客户端断开了，但是服务端还没察觉到，会发生 conn_tx 还存在这种情况
+                if let Some(conn_tx) = &session.conn_tx {
+                    if let Err(e) = conn_tx.try_send(Outgoing::Disconnect) {
+                        warn!("Failed to send disconnect packet to old session: {0}", e)
+                    }
+                }
+                if !clean_session {
+                    Some(session)
+                } else {
+                    None
                 }
             }
-            if clean_session {
-                Some(session)
-            } else {
-                None
-            }
-        } else {
-            None
+            None => None,
         };
+        // 从待清理队列中移除当前会话
+        self.ineffective_sessions.retain(|(c, _)| c != &client_id);
         let session_present = session.is_some();
 
         // TODO 清理 session 中还积压的消息
@@ -154,17 +158,19 @@ impl<H: Hook> Router<H> {
             None => Session::new(&client_id, clean_session, conn_tx),
         };
 
-        self.sessions.insert(client_id, new_session);
+        self.sessions.insert(client_id, Box::new(new_session));
 
         // 清理一波旧的 session
         let now = time::Instant::now();
-        while let Some((client_id, ineffected_at)) = self.ineffective_sessions.front() {
-            if now.duration_since(*ineffected_at) < time::Duration::from_secs(3600) {
+        while let Some((client_id, ineffected_at)) = self.ineffective_sessions.pop_front() {
+            // 没到超时时间，退出
+            if now.duration_since(ineffected_at) < time::Duration::from_secs(3600) {
+                self.ineffective_sessions
+                    .push_front((client_id.clone(), ineffected_at));
                 break;
             }
-            if self.sessions.remove(client_id).is_some() {
-                info!("session correspond to client {0} expired", client_id)
-            }
+            // 超时的，删除
+            self.sessions.remove(&client_id);
         }
         Ok(())
     }
@@ -249,7 +255,9 @@ impl<H: Hook> Router<H> {
     /// 给所有符合条件的客户端发送消息
     async fn publish_message(&mut self, publish: &Publish) -> Result<(), Error> {
         for session in self.sessions.values_mut() {
-            session.publish_message(publish).await?;
+            if session.conn_tx.is_some() {
+                session.publish_message(publish).await?;
+            }
         }
         Ok(())
     }
@@ -295,16 +303,35 @@ impl<H: Hook> Router<H> {
     }
 
     /// 处理客户端断开连接事件
-    async fn handle_disconnect(&mut self, _client_id: &str) -> Result<(), Error> {
-        todo!()
+    /// 不发送 will 消息
+    async fn handle_client_disconnect(&mut self, client_id: &str) -> Result<(), Error> {
+        if let Some(session) = self.sessions.get_mut(client_id) {
+            // 向 conn 返回断开连接确认消息
+            if let Some(conn_tx) = session.conn_tx.take() {
+                conn_tx.send(Outgoing::Disconnect).await?
+            }
+
+            // 放到会话失效列表
+            self.ineffective_sessions
+                .push_back((session.client_id.clone(), time::Instant::now()));
+        }
+
+        Ok(())
     }
 
-    /// 处理客户端的异常退出
+    /// 处理客户端的异常退出，发送 will 消息
     ///
     /// 如：
     /// * 协议格式错误
     /// * 网络错误
-    async fn handle_client_aborted(&mut self, _client_id: &str) -> Result<(), Error> {
-        todo!()
+    async fn handle_conn_disconnect(&mut self, client_id: &str) -> Result<(), Error> {
+        if let Some(session) = self.sessions.get_mut(client_id) {
+            self.ineffective_sessions
+                .push_back((session.client_id.clone(), time::Instant::now()));
+        }
+
+        // TODO 发送 will 消息
+
+        Ok(())
     }
 }
