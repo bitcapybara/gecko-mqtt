@@ -11,6 +11,7 @@ use tokio::{
 };
 
 use crate::{
+    config,
     network::{
         packet::QoS,
         v4::{
@@ -25,6 +26,8 @@ use super::{
     session::{self, Session},
     Incoming, Outgoing,
 };
+
+const SESSION_DEFAULT_EXPIRE_INTERVAL: u64 = 3600;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -41,6 +44,7 @@ pub enum Error {
 /// 处理 mqtt 协议层运行时相关逻辑
 /// 接收消息，处理，发送到对应的设备/节点
 pub(crate) struct Router<H: Hook> {
+    session_cfg: config::Session,
     /// 各个客户端连接发送过来需要处理的数据
     router_rx: Receiver<Incoming>,
     /// 管理客户端连接信息，key = client_id
@@ -57,8 +61,13 @@ pub(crate) struct Router<H: Hook> {
 }
 
 impl<H: Hook> Router<H> {
-    pub(crate) fn new(hook: Arc<H>, router_rx: Receiver<Incoming>) -> Self {
+    pub(crate) fn new(
+        session_cfg: config::Session,
+        hook: Arc<H>,
+        router_rx: Receiver<Incoming>,
+    ) -> Self {
         Self {
+            session_cfg,
             router_rx,
             sessions: HashMap::new(),
             ineffective_sessions: VecDeque::new(),
@@ -167,7 +176,13 @@ impl<H: Hook> Router<H> {
         let now = time::Instant::now();
         while let Some((client_id, ineffected_at)) = self.ineffective_sessions.pop_front() {
             // 没到超时时间，退出
-            if now.duration_since(ineffected_at) < time::Duration::from_secs(3600) {
+            let session_expire_interval = self
+                .session_cfg
+                .expire_interval
+                .unwrap_or(SESSION_DEFAULT_EXPIRE_INTERVAL);
+            if now.duration_since(ineffected_at)
+                < time::Duration::from_secs(session_expire_interval)
+            {
                 self.ineffective_sessions
                     .push_front((client_id.clone(), ineffected_at));
                 break;

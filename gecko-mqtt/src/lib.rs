@@ -7,6 +7,7 @@ use network::v4::Login;
 
 pub mod broker;
 mod cluster;
+pub mod config;
 pub mod error;
 mod network;
 mod protocol;

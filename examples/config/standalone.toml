@@ -1,3 +1,6 @@
-[broker.listen]
-client = "0.0.0.0:1883"
-peer = "0.0.0.0:1888"
+[broker]
+client_addr = "0.0.0.0:1883"
+peer_addr = "0.0.0.0:1888"
+
+[session]
+expire_interval = 3600

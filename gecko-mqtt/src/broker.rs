@@ -4,6 +4,7 @@ use log::{debug, error, info};
 use tokio::{net::TcpListener, sync::mpsc};
 
 use crate::{
+    config::Config,
     error::Error,
     network::{ClientEventLoop, PeerConnection},
     protocol::{Incoming, Router},
@@ -11,25 +12,14 @@ use crate::{
     Hook, HookNoop,
 };
 
-pub struct BrokerConfig {
-    pub client_listen_addr: String,
-    pub peer_listen_addr: String,
-}
-
 /// 代表一个 mqtts 节点
 pub struct Broker {
-    // 客户端监听地址
-    client_listen_addr: String,
-    // 对等节点监听地址
-    peer_listen_addr: String,
+    cfg: Config,
 }
 
 impl Broker {
-    pub fn new(cfg: BrokerConfig) -> Self {
-        Self {
-            client_listen_addr: cfg.client_listen_addr,
-            peer_listen_addr: cfg.peer_listen_addr,
-        }
+    pub fn new(cfg: Config) -> Self {
+        Self { cfg }
     }
 
     pub async fn start(&self) -> Result<(), Error> {
@@ -40,9 +30,10 @@ impl Broker {
         // router 后台协程
         let (router_tx, router_rx) = mpsc::channel(1000);
         let router_hook = hook.clone();
+        let session_cfg = self.cfg.session.clone();
         tokio::spawn(async move {
             debug!("start router loop");
-            let router = Router::new(router_hook, router_rx);
+            let router = Router::new(session_cfg, router_hook, router_rx);
             if let Err(e) = router.start().await {
                 error!("router exit error: {:?}", e)
             }
@@ -50,7 +41,7 @@ impl Broker {
 
         // 开启 grpc peer server
         let (peer_tx, peer_rx) = mpsc::channel(1000);
-        let grpc_addr = self.peer_listen_addr.parse().unwrap();
+        let grpc_addr = self.cfg.broker.peer_addr.parse().unwrap();
         tokio::spawn(async move {
             debug!("start peer server loop");
             tonic::transport::Server::builder()
@@ -71,7 +62,9 @@ impl Broker {
         });
 
         // 开启客户端连接监听
-        let listener = TcpListener::bind(&self.client_listen_addr).await.unwrap();
+        let listener = TcpListener::bind(&self.cfg.broker.client_addr)
+            .await
+            .unwrap();
         debug!("start client server loop");
         loop {
             // 获取到连接

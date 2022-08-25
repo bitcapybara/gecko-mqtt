@@ -1,21 +1,19 @@
-use examples::Config;
-use flexi_logger::Logger;
-use gecko_mqtt::broker::{self, BrokerConfig};
+use flexi_logger::{colored_opt_format, Logger};
+use gecko_mqtt::broker;
+use gecko_mqtt::config::Config;
 
 #[tokio::main]
 async fn main() {
+    // 日志
+    Logger::try_with_str("debug")
+        .unwrap()
+        .format(colored_opt_format)
+        .start()
+        .unwrap();
+
     // 获取配置
     let cfg = Config::from_path("./examples/config/standalone.toml").await;
 
-    // 日志
-    Logger::try_with_str("debug").unwrap().start().unwrap();
-
     // 启动 broker
-    broker::Broker::new(BrokerConfig {
-        client_listen_addr: cfg.broker.listen.client,
-        peer_listen_addr: cfg.broker.listen.peer,
-    })
-    .start()
-    .await
-    .unwrap()
+    broker::Broker::new(cfg).start().await.unwrap()
 }
