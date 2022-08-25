@@ -3,7 +3,7 @@ use std::collections::HashMap;
 pub struct SubscriptionTree<T> {
     root: Option<SubscriptionNode<T>>,
     /// 插入的每一个数据，分配一个唯一的 token 号，方便查询和删除
-    token: u64
+    token: u64,
 }
 
 /// 订阅树的节点
@@ -26,11 +26,14 @@ pub enum LevelKey {
 
 impl<T> SubscriptionTree<T> {
     pub fn new() -> Self {
-        Self { root: None, token: 0 }
+        Self {
+            root: None,
+            token: 0,
+        }
     }
 
     /// 插入一个订阅记录
-    pub fn insert(_filter: &str, _data:T) -> u64 {
+    pub fn insert(_filter: &str, _data: T) -> u64 {
         todo!()
     }
 

@@ -185,8 +185,10 @@ checksum = "3f107b87b6afc2a64fd13cac55fe06d6c8859f12d4b14cbcdd2c67d0976781be"
 name = "examples"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "flexi_logger",
  "gecko-mqtt",
+ "log",
  "tokio",
 ]
 

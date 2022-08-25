@@ -3,7 +3,7 @@
 //! 一个 mqtt 服务端库，用户可以使用此库构建自己的 mqtt broker
 
 use async_trait::async_trait;
-use network::v4::Login;
+pub use network::v4::Login;
 
 pub mod broker;
 mod cluster;
