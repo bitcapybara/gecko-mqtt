@@ -24,6 +24,7 @@ use crate::{
 
 use super::{
     session::{self, Session},
+    subscripton::SubscriptionTree,
     Incoming, Outgoing,
 };
 
@@ -54,6 +55,13 @@ pub(crate) struct Router<H: Hook> {
     sessions: HashMap<String, Box<Session>>,
     /// 已经失效的 session，等待超时移除 (client_id, push_to_queue_time)
     ineffective_sessions: VecDeque<(String, time::Instant)>,
+
+    /// TODO 加速消息发布查找
+    /// 全局的精确订阅信息, key = topic-filter, value = client_id
+    concrete_subscriptions: HashMap<String, Vec<String>>,
+    /// 全局的模糊订阅信息, T = client_id
+    wild_subscriptions: SubscriptionTree<String>,
+
     /// 保留消息
     retains: Vec<Publish>,
     /// 钩子函数
@@ -71,6 +79,8 @@ impl<H: Hook> Router<H> {
             router_rx,
             sessions: HashMap::new(),
             ineffective_sessions: VecDeque::new(),
+            concrete_subscriptions: HashMap::new(),
+            wild_subscriptions: SubscriptionTree::new(),
             retains: Vec::new(),
             hook,
         }

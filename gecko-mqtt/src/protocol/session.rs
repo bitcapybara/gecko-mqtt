@@ -27,12 +27,13 @@ pub struct Session {
     pub client_id: String,
     /// clean session（持久化）,immutable
     clean_session: bool,
-    /// 过期配置
 
     /// 订阅的主题（精确匹配）
     concrete_subscriptions: HashMap<String, QoS>,
     /// 订阅的主题（包含通配符）
+    /// TODO 使用 订阅树？
     wild_subscriptions: HashMap<String, QoS>,
+
     /// 保存发送给客户端但是还没有删除的消息（QoS1, QoS2）(持久化)
     /// 接收到 puback/pubcomp 后删除
     messages_publish: HashMap<u16, Publish>,

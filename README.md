@@ -137,6 +137,8 @@ https://www.emqx.io/docs/zh/v5.0/design/design.html#%E7%B3%BB%E7%BB%9F%E6%9E%B6%
 
 ## TODO
 
+router 使用订阅树
+
 1. 单节点，内存实现
 2. 单节点，持久化实现
 3. raft 多节点，持久化实现
