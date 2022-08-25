@@ -1,6 +1,10 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{HashMap, VecDeque},
+    sync::Arc,
+    time,
+};
 
-use log::warn;
+use log::{info, warn};
 use tokio::{
     select,
     sync::mpsc::{error::SendError, Receiver, Sender},
@@ -40,7 +44,12 @@ pub(crate) struct Router<H: Hook> {
     /// 各个客户端连接发送过来需要处理的数据
     router_rx: Receiver<Incoming>,
     /// 管理客户端连接信息，key = client_id
+    /// session 清理
+    /// 将需要清理的session放到一个队列中，队列顺序即代表需要清理的顺序
+    /// 当有新的连接进来时，取出队列头的session进行判断清理直到过期时间不满足清理条件，如此，保持内存中的session不会引起大的内存泄漏
     sessions: HashMap<String, Session>,
+    /// 已经失效的 session，等待超时移除 (client_id, push_to_queue_time)
+    ineffective_sessions: VecDeque<(String, time::Instant)>,
     /// 保留消息
     retains: Vec<Publish>,
     /// 钩子函数
@@ -52,6 +61,7 @@ impl<H: Hook> Router<H> {
         Self {
             router_rx,
             sessions: HashMap::new(),
+            ineffective_sessions: VecDeque::new(),
             retains: Vec::new(),
             hook,
         }
@@ -95,13 +105,13 @@ impl<H: Hook> Router<H> {
                         Packet::PubComp(pubcomp) => {
                             self.handle_publish_complete(&client_id, pubcomp)
                         }
-                        Packet::Disconnect => self.handle_disconnect(&client_id, false).await?,
+                        Packet::Disconnect => self.handle_disconnect(&client_id).await?,
                         _ => return Err(Error::UnexpectedPacket),
                     }
                 }
                 Ok(())
             }
-            Incoming::Disconnect { client_id } => self.handle_disconnect(&client_id, true).await,
+            Incoming::Disconnect { client_id } => self.handle_client_aborted(&client_id).await,
         }
     }
 
@@ -145,6 +155,17 @@ impl<H: Hook> Router<H> {
         };
 
         self.sessions.insert(client_id, new_session);
+
+        // 清理一波旧的 session
+        let now = time::Instant::now();
+        while let Some((client_id, ineffected_at)) = self.ineffective_sessions.front() {
+            if now.duration_since(*ineffected_at) < time::Duration::from_secs(3600) {
+                break;
+            }
+            if self.sessions.remove(client_id).is_some() {
+                info!("session correspond to client {0} expired", client_id)
+            }
+        }
         Ok(())
     }
 
@@ -274,14 +295,16 @@ impl<H: Hook> Router<H> {
     }
 
     /// 处理客户端断开连接事件
-    /// exec_will true 表示客户端已异常退出，session 不需要再发送消息给 conn_tx
-    /// exec_will false 表示客户端主动断开连接，session 需要发送回 conn_tx 一个 Disconnect 消息使 conn 正常退出
-    /// session 处理完后，即可 drop 掉 conn_tx
-    /// 
-    /// TODO session 清理
-    /// 将需要清理的session放到一个队列中，队列顺序即代表需要清理的顺序
-    /// 当有新的连接进来时，取出队列头的session进行判断清理直到过期时间不满足清理条件，如此，保持内存中的session不会引起大的内存泄漏
-    async fn handle_disconnect(&mut self, _client_id: &str, _exec_will: bool) -> Result<(), Error> {
+    async fn handle_disconnect(&mut self, _client_id: &str) -> Result<(), Error> {
+        todo!()
+    }
+
+    /// 处理客户端的异常退出
+    ///
+    /// 如：
+    /// * 协议格式错误
+    /// * 网络错误
+    async fn handle_client_aborted(&mut self, _client_id: &str) -> Result<(), Error> {
         todo!()
     }
 }

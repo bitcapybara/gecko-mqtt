@@ -9,7 +9,6 @@ pub(crate) use router::Router;
 
 mod router;
 mod session;
-mod subscription;
 
 /// 发送给 router 的消息
 #[derive(Debug)]
