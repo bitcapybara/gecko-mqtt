@@ -52,7 +52,7 @@ pub(crate) struct Router<H: Hook> {
     /// session 清理
     /// 将需要清理的session放到一个队列中，队列顺序即代表需要清理的顺序
     /// 当有新的连接进来时，取出队列头的session进行判断清理直到过期时间不满足清理条件，如此，保持内存中的session不会引起大的内存泄漏
-    sessions: HashMap<String, Box<Session>>,
+    sessions: HashMap<String, Session>,
     /// 已经失效的 session，等待超时移除 (client_id, push_to_queue_time)
     ineffective_sessions: VecDeque<(String, time::Instant)>,
 
@@ -180,7 +180,7 @@ impl<H: Hook> Router<H> {
             None => Session::new(&client_id, clean_session, conn_tx),
         };
 
-        self.sessions.insert(client_id, Box::new(new_session));
+        self.sessions.insert(client_id, new_session);
 
         // 清理一波旧的 session
         let now = time::Instant::now();
