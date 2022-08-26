@@ -113,7 +113,7 @@ impl FromStr for LevelKey {
         match path {
             "+" => Ok(LevelKey::SingleLevelWildcard),
             "#" => Ok(LevelKey::MultiLevelWildcard),
-            s if s.len() != 1 && topic_has_wildcards(s) => Err(Error::ParseFilterLevel),
+            s if topic_has_wildcards(s) => Err(Error::ParseFilterLevel),
             s => Ok(LevelKey::Concrete(s.into())),
         }
     }
