@@ -19,4 +19,8 @@ pub enum Error {
     UnexpectedImcoming(PacketType),
     #[error("Keep alive timeout")]
     KeepAlive(#[from] time::error::Elapsed),
+    #[error("Connection closed by peer")]
+    ConnectionAborted,
+    #[error("Connection reset by peer")]
+    ConnectionReset,
 }

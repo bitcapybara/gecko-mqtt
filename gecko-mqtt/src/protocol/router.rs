@@ -4,7 +4,6 @@ use std::{
     time,
 };
 
-use log::warn;
 use tokio::{
     select,
     sync::mpsc::{error::SendError, Receiver, Sender},
@@ -151,9 +150,7 @@ impl<H: Hook> Router<H> {
             Some(session) => {
                 // 客户端断开了，但是服务端还没察觉到，会发生 conn_tx 还存在这种情况
                 if let Some(conn_tx) = &session.conn_tx {
-                    if let Err(e) = conn_tx.try_send(Outgoing::Disconnect) {
-                        warn!("Failed to send disconnect packet to old session: {0}", e)
-                    }
+                    let _ = conn_tx.try_send(Outgoing::Disconnect);
                 }
                 if !clean_session {
                     Some(session)

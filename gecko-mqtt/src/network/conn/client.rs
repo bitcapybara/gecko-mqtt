@@ -110,7 +110,11 @@ impl ClientConnection {
         loop {
             let read = self.stream.read_buf(&mut self.read).await?;
             if 0 == read {
-                todo!()
+                return if self.read.is_empty() {
+                    Err(Error::ConnectionAborted)
+                } else {
+                    Err(Error::ConnectionReset)
+                };
             }
 
             total_read += read;

@@ -179,6 +179,7 @@ impl Packet {
             return match packet_type {
                 PacketType::PingReq => Ok(Packet::PingReq),
                 PacketType::PingResp => Ok(Packet::PingResp),
+                PacketType::Disconnect => Ok(Packet::Disconnect),
                 _ => Err(Error::PayloadRequired),
             };
         }
@@ -193,6 +194,13 @@ impl Packet {
             PacketType::Connect => Packet::Connect(Connect::read(stream)?),
             PacketType::Subscribe => Packet::Subscribe(Subscribe::read(stream)?),
             PacketType::Publish => Packet::Publish(Publish::read(fixed_header, stream)?),
+            PacketType::PubAck => Packet::PubAck(PubAck::read(fixed_header, stream)?),
+            PacketType::PubComp => Packet::PubComp(PubComp::read(fixed_header, stream)?),
+            PacketType::PubRec => Packet::PubRec(PubRec::read(fixed_header, stream)?),
+            PacketType::PubRel => Packet::PubRel(PubRel::read(fixed_header, stream)?),
+            PacketType::Unsubscribe => {
+                Packet::Unsubscribe(Unsubscribe::read(fixed_header, stream)?)
+            }
             _ => return Err(Error::UnexpectedPacketType),
         };
 
@@ -205,7 +213,12 @@ impl Packet {
             Packet::PingResp => PingResp.write(stream),
             Packet::SubAck(ack) => ack.write(stream),
             Packet::Publish(publish) => publish.write(stream),
-            _ => todo!(),
+            Packet::PubAck(puback) => puback.write(stream),
+            Packet::PubComp(pubcomp) => pubcomp.write(stream),
+            Packet::PubRec(pubrec) => pubrec.write(stream),
+            Packet::PubRel(pubrel) => pubrel.write(stream),
+            Packet::UnsubAck(unsuback) => unsuback.write(stream),
+            _ => Err(Error::UnexpectedPacketType),
         }
     }
 

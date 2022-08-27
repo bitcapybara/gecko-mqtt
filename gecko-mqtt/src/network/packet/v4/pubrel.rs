@@ -25,7 +25,7 @@ impl PubRel {
         Ok(Self { packet_id })
     }
 
-    pub fn write(&mut self, stream: &mut BytesMut) -> Result<(), Error> {
+    pub fn write(&self, stream: &mut BytesMut) -> Result<(), Error> {
         stream.put_u8(0x62);
         packet::write_remaining_length(stream, self.len())?;
         stream.put_u16(self.packet_id);
