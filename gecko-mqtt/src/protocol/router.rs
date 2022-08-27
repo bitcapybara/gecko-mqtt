@@ -237,8 +237,7 @@ impl<H: Hook> Router<H> {
                         if let Some(clients) = self.concrete_subscriptions.get_mut(&path) {
                             clients.insert(client_id.into());
                         } else {
-                            let mut new_set = HashSet::new();
-                            new_set.insert(client_id.into());
+                            let new_set = HashSet::from_iter([client_id.into()]);
                             self.concrete_subscriptions.insert(path.clone(), new_set);
                         }
                         // 添加到session里
