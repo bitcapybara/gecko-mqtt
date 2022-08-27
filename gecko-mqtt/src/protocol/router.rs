@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     sync::Arc,
     time,
 };
@@ -14,6 +14,7 @@ use crate::{
     config,
     network::{
         packet::QoS,
+        topic,
         v4::{
             ConnAck, Connect, ConnectReturnCode, Packet, PubAck, PubComp, PubRec, PubRel, Publish,
             SubAck, Subscribe, SubscribeReasonCode, UnsubAck, Unsubscribe,
@@ -58,7 +59,7 @@ pub(crate) struct Router<H: Hook> {
 
     /// TODO 加速消息发布查找
     /// 全局的精确订阅信息, key = topic-filter, value = client_id
-    concrete_subscriptions: HashMap<String, Vec<String>>,
+    concrete_subscriptions: HashMap<String, HashSet<String>>,
     /// 全局的模糊订阅信息, T = client_id
     wild_subscriptions: SubscriptionTree<String>,
 
@@ -216,8 +217,33 @@ impl<H: Hook> Router<H> {
             Some(session) => {
                 let mut return_codes = Vec::with_capacity(filters.len());
                 for filter in filters {
-                    // 添加到 session
-                    session.insert_filter((&filter.path, filter.qos));
+                    let path = filter.path;
+                    // 添加到订阅管理
+                    if topic::filter_has_wildcards(&path) {
+                        // 查询一下是否已添加过
+                        if session.wildcard_subscriptions.contains_key(&path) {
+                            continue;
+                        }
+                        // 添加到全局
+                        let token = self.wild_subscriptions.insert(&path, client_id.into());
+                        // 添加到session里
+                        session.wildcard_subscriptions.insert(path, token);
+                    } else {
+                        // 查询一下是否已添加过
+                        if session.concrete_subscriptions.contains(&path) {
+                            continue;
+                        }
+                        // 添加到全局
+                        if let Some(clients) = self.concrete_subscriptions.get_mut(&path) {
+                            clients.insert(client_id.into());
+                        } else {
+                            let mut new_set = HashSet::new();
+                            new_set.insert(client_id.into());
+                            self.concrete_subscriptions.insert(path.clone(), new_set);
+                        }
+                        // 添加到session里
+                        session.concrete_subscriptions.insert(path);
+                    }
                     // TODO 添加一些校验，目前 sub 都是 success
                     return_codes.push(SubscribeReasonCode::Success(filter.qos));
                 }
@@ -240,7 +266,16 @@ impl<H: Hook> Router<H> {
         let Unsubscribe { packet_id, filters } = unsubscribe;
         match self.sessions.get_mut(client_id) {
             Some(session) => {
-                session.remove_filters(&filters);
+                for filter in filters {
+                    if topic::filter_has_wildcards(&filter) {
+                        if let Some(token) = session.wildcard_subscriptions.remove(&filter) {
+                            self.wild_subscriptions.remove(&filter, token);
+                        }
+                    } else {
+                        session.concrete_subscriptions.remove(&filter);
+                        self.concrete_subscriptions.remove(&filter);
+                    }
+                }
                 Ok(session
                     .send_packet(Packet::UnsubAck(UnsubAck { packet_id }))
                     .await?)
@@ -300,11 +335,24 @@ impl<H: Hook> Router<H> {
 
     /// 给所有符合条件的客户端发送消息
     async fn publish_message(&mut self, publish: &Publish) -> Result<(), Error> {
-        for session in self.sessions.values_mut() {
-            if session.conn_tx.is_some() {
+        let Publish { topic, .. } = publish;
+        let mut clients = HashSet::new();
+        // 精确匹配
+        if let Some(client_ids) = self.concrete_subscriptions.get(topic) {
+            for client_id in client_ids {
+                clients.insert(client_id);
+            }
+        }
+        // 模糊匹配
+        clients.extend(self.wild_subscriptions.matches(topic));
+
+        // 发送
+        for client_id in clients {
+            if let Some(session) = self.sessions.get_mut(client_id) {
                 session.publish_message(publish).await?;
             }
         }
+
         Ok(())
     }
 

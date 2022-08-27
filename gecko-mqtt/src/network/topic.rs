@@ -1,6 +1,6 @@
 /// taopic 是否含有通配符
-pub fn topic_has_wildcards(s: &str) -> bool {
-    s.contains('+') || s.contains('#')
+pub fn filter_has_wildcards(filter: &str) -> bool {
+    filter.contains('+') || filter.contains('#')
 }
 
 pub fn valid_publish_topic(topic: &str) -> bool {

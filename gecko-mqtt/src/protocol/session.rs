@@ -3,10 +3,7 @@ use std::collections::{HashMap, HashSet};
 use packet::v4::{Packet, PubComp, PubRec, PubRel, Publish};
 use tokio::sync::mpsc::{error::SendError, Sender};
 
-use crate::network::{
-    packet::{self, QoS},
-    topic,
-};
+use crate::network::packet::{self, QoS};
 
 use super::Outgoing;
 
@@ -28,11 +25,10 @@ pub struct Session {
     /// clean session（持久化）,immutable
     clean_session: bool,
 
-    /// 订阅的主题（精确匹配）
-    concrete_subscriptions: HashMap<String, QoS>,
-    /// 订阅的主题（包含通配符）
-    /// TODO 使用 订阅树？
-    wild_subscriptions: HashMap<String, QoS>,
+    /// 订阅的主题（精确匹配，不可以重复订阅）
+    /// key = topic-filter, value = token
+    pub concrete_subscriptions: HashSet<String>,
+    pub wildcard_subscriptions: HashMap<String, u64>,
 
     /// 保存发送给客户端但是还没有删除的消息（QoS1, QoS2）(持久化)
     /// 接收到 puback/pubcomp 后删除
@@ -51,8 +47,8 @@ impl Session {
         Self {
             client_id: client_id.into(),
             clean_session,
-            concrete_subscriptions: HashMap::new(),
-            wild_subscriptions: HashMap::new(),
+            concrete_subscriptions: HashSet::new(),
+            wildcard_subscriptions: HashMap::new(),
             messages_publish: HashMap::new(),
             messages_receive: HashSet::new(),
             messages_release: HashSet::new(),
@@ -65,30 +61,11 @@ impl Session {
             client_id: self.client_id,
             clean_session,
             concrete_subscriptions: self.concrete_subscriptions,
-            wild_subscriptions: self.wild_subscriptions,
+            wildcard_subscriptions: self.wildcard_subscriptions,
             messages_publish: self.messages_publish,
             messages_receive: self.messages_receive,
             messages_release: self.messages_release,
             conn_tx: Some(conn_tx),
-        }
-    }
-
-    /// 添加订阅topic，如果相同则覆盖
-    /// 即，同一个会话中，不可以有多个一样的 topic filter
-    pub fn insert_filter(&mut self, filter: (&str, QoS)) {
-        let topic_filter = filter.0.into();
-        let qos = filter.1;
-        if topic::topic_has_wildcards(filter.0) {
-            self.wild_subscriptions.insert(topic_filter, qos);
-        } else {
-            self.concrete_subscriptions.insert(topic_filter, qos);
-        }
-    }
-
-    pub fn remove_filters(&mut self, filters: &[String]) {
-        for filter in filters {
-            self.concrete_subscriptions.remove(filter);
-            self.wild_subscriptions.remove(filter);
         }
     }
 
@@ -120,43 +97,25 @@ impl Session {
     /// * qos1: store, publish, puback
     /// * qos2: store, pubrec
     pub async fn publish_message(&mut self, publish: &Publish) -> Result<(), Error> {
-        let Publish {
-            qos,
-            topic,
-            packet_id,
-            ..
-        } = publish;
-
-        // 查询是否匹配
-        let mut matched = self.concrete_subscriptions.contains_key(topic);
-        if !matched {
-            for filter in self.wild_subscriptions.iter() {
-                if topic::matches(topic, filter.0) {
-                    matched = true;
-                    break;
-                }
-            }
-        }
+        let Publish { qos, packet_id, .. } = publish;
 
         // 根据订阅的qos处理
-        if matched {
-            match qos {
-                QoS::AtMostOnce => {
-                    // 发送给订阅的客户端
-                    self.send_packet(Packet::Publish(publish.clone())).await?;
-                }
-                QoS::AtLeastOnce => {
-                    // 保存起来，等待接收到 puback/pubcomp 后删除
-                    self.messages_publish
-                        .insert(packet_id.to_owned(), publish.clone());
-                    // 发送给订阅的客户端
-                    self.send_packet(Packet::Publish(publish.clone())).await?;
-                }
-                QoS::ExactlyOnce => {
-                    // 保存数据，收到 pubrel 后再发送
-                    self.messages_publish
-                        .insert(packet_id.to_owned(), publish.clone());
-                }
+        match qos {
+            QoS::AtMostOnce => {
+                // 发送给订阅的客户端
+                self.send_packet(Packet::Publish(publish.clone())).await?;
+            }
+            QoS::AtLeastOnce => {
+                // 保存起来，等待接收到 puback/pubcomp 后删除
+                self.messages_publish
+                    .insert(packet_id.to_owned(), publish.clone());
+                // 发送给订阅的客户端
+                self.send_packet(Packet::Publish(publish.clone())).await?;
+            }
+            QoS::ExactlyOnce => {
+                // 保存数据，收到 pubrel 后再发送
+                self.messages_publish
+                    .insert(packet_id.to_owned(), publish.clone());
             }
         }
 
