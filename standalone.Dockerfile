@@ -20,10 +20,4 @@ ADD examples/config /gecko-mqtt/
 
 ENV CONFIG_FILE=standalone.toml
 
-# COPY --from=build /usr/share/zoneinfo/Asia/Shanghai /usr/share/zoneinfo/Asia/Shanghai
-
-# RUN rm -f /etc/localtime && \
-#     ln -sv /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
-# ENV TZ="Asia/Shanghai"
-
 CMD ["./gecko-mqtt-standalone"]
