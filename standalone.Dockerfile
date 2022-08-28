@@ -4,9 +4,11 @@ WORKDIR /gecko-mqtt
 COPY . /gecko-mqtt/
 
 RUN apt update && apt upgrade -y && \
-    apt install -y protobuf-compiler libprotobuf-dev && \ 
-    cargo build --release --bin standalone && \
-    mv target/release/standalone /bin/gecko-mqtt-standalone
+    apt install -y protobuf-compiler libprotobuf-dev musl-dev && \ 
+    rustup target add x86_64-unknown-linux-musl && \
+    rustup toolchain install stable-x86_64-unknown-linux-musl && \
+    cargo build --release --target x86_64-unknown-linux-musl --bin standalone && \
+    mv target/x86_64-unknown-linux-musl/release/standalone /bin/gecko-mqtt-standalone
 
 FROM scratch
 
@@ -18,7 +20,6 @@ ADD examples/config /gecko-mqtt/
 
 ENV CONFIG_FILE=standalone.toml
 
-RUN ls
 # COPY --from=build /usr/share/zoneinfo/Asia/Shanghai /usr/share/zoneinfo/Asia/Shanghai
 
 # RUN rm -f /etc/localtime && \
