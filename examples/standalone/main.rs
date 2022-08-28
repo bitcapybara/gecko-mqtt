@@ -6,6 +6,12 @@ use gecko_mqtt::config::Config;
 use gecko_mqtt::{broker, Hook, Login};
 use log::info;
 
+#[derive(Debug, serde::Deserialize)]
+struct Args {
+    #[serde(default)]
+    config_file: Option<String>,
+}
+
 #[tokio::main]
 async fn main() {
     // 日志
@@ -15,8 +21,12 @@ async fn main() {
         .start()
         .unwrap();
 
+    // 环境变量
+    let args = envy::from_env::<Args>().unwrap();
+    let config_file = args.config_file.unwrap_or_else(|| "standalone.toml".into());
+
     // 获取配置
-    let cfg = Config::from_path("./examples/config/standalone.toml").await;
+    let cfg = Config::from_path(&config_file).await;
 
     // 启动 broker
     broker::Broker::new(cfg)
