@@ -90,6 +90,7 @@ impl ClientConnection {
         self.flush().await
     }
 
+    /// TODO 统计已写入的字节数，防止发送 packets 的量太大
     pub(crate) async fn write_packets(&mut self, packets: Vec<Packet>) -> Result<(), Error> {
         for packet in packets {
             packet.write(&mut self.write)?;

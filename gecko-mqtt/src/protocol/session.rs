@@ -87,6 +87,35 @@ impl Session {
         }
     }
 
+    /// 给客户端重新发送积压的消息
+    pub async fn resend_packets(&mut self) -> Result<(), Error> {
+        if !self.messages_publish.is_empty() {
+            let messages = self
+                .messages_publish
+                .values()
+                .cloned()
+                .map(|mut p| {
+                    p.dup = true;
+                    Packet::Publish(p)
+                })
+                .collect();
+
+            self.send_packets(messages).await?;
+        }
+
+        if !self.messages_release.is_empty() {
+            let messages = self
+                .messages_release
+                .iter()
+                .cloned()
+                .map(|packet_id| Packet::PubRel(PubRel { packet_id }))
+                .collect();
+            self.send_packets(messages).await?;
+        }
+
+        Ok(())
+    }
+
     ///
     pub fn insert_received(&mut self, packet_id: u16) {
         self.messages_receive.insert(packet_id);

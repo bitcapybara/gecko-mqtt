@@ -146,7 +146,7 @@ impl<H: Hook> Router<H> {
         let client_id = connect.client_id;
         let clean_session = connect.clean_session;
         // 拿出当前存储的 session（没来得及清理）
-        let session = match self.sessions.remove(&client_id) {
+        let mut session = match self.sessions.remove(&client_id) {
             Some(session) => {
                 // 客户端断开了，但是服务端还没察觉到，会发生 conn_tx 还存在这种情况
                 if let Some(conn_tx) = &session.conn_tx {
@@ -164,7 +164,10 @@ impl<H: Hook> Router<H> {
         self.ineffective_sessions.retain(|(c, _)| c != &client_id);
         let session_present = session.is_some();
 
-        // TODO 清理 session 中还积压的消息
+        // 清理 session 中还积压的消息
+        if let Some(session) = session.as_mut() {
+            session.resend_packets().await?;
+        }
 
         // 发送 ack 消息
         let ack = ConnAck {
