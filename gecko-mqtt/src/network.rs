@@ -134,7 +134,8 @@ impl<H: Hook> ClientEventLoop<H> {
                 recv = self.conn_rx.recv() => {
                     match recv {
                         Some(outgoing) => match outgoing {
-                            Outgoing::Data(packet) => self.conn.write_packet(packet).await?,
+                            Outgoing::Packet(packet) => self.conn.write_packet(packet).await?,
+                            Outgoing::Packets(packets) => self.conn.write_packets(packets).await?,
                             Outgoing::Disconnect => return Ok(()),
                             _ => return Err(Error::UnexpectedRouterMessage)
                         },

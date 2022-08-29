@@ -31,6 +31,7 @@ pub enum Incoming {
 #[derive(Debug)]
 pub enum Outgoing {
     ConnAck(ConnAck),
-    Data(Packet),
+    Packet(Packet),
+    Packets(Vec<Packet>),
     Disconnect,
 }

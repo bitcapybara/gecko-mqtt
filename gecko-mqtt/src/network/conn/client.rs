@@ -90,6 +90,13 @@ impl ClientConnection {
         self.flush().await
     }
 
+    pub(crate) async fn write_packets(&mut self, packets: Vec<Packet>) -> Result<(), Error> {
+        for packet in packets {
+            packet.write(&mut self.write)?;
+        }
+        self.flush().await
+    }
+
     /// 从 socket 读取更多数据
     pub(crate) async fn read_more(
         &mut self,

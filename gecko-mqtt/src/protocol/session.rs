@@ -72,7 +72,16 @@ impl Session {
     /// 给客户端发送消息
     pub async fn send_packet(&self, packet: Packet) -> Result<(), Error> {
         if let Some(ref sender) = self.conn_tx {
-            Ok(sender.send(Outgoing::Data(packet)).await?)
+            Ok(sender.send(Outgoing::Packet(packet)).await?)
+        } else {
+            Err(Error::SessionConnTxNotFound)
+        }
+    }
+
+    /// 给客户端发送批量消息
+    pub async fn send_packets(&self, packets: Vec<Packet>) -> Result<(), Error> {
+        if let Some(ref sender) = self.conn_tx {
+            Ok(sender.send(Outgoing::Packets(packets)).await?)
         } else {
             Err(Error::SessionConnTxNotFound)
         }
