@@ -1,11 +1,5 @@
 use std::{collections::HashMap, fmt::Debug};
 
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("Parse topic level error")]
-    ParseFilterLevel,
-}
-
 #[derive(Debug, serde::Serialize)]
 pub struct SubscriptionTree<T: Debug> {
     /// 订阅树的根节点，是个空节点
