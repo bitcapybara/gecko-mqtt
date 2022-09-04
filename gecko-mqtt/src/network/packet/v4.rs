@@ -34,17 +34,14 @@ pub mod unsubscribe;
 pub enum Error {
     #[error("Invalid packet type: {0}")]
     InvalidPacketType(u8),
-
     #[error("Invalid protocol")]
     InvalidProtocol,
     #[error("Invalid protocol level: {0}")]
     InvalidProtocolLevel(u8),
     #[error("Incorrect packet format")]
     IncorrectPacketFormat,
-
     #[error("Payload required")]
     PayloadRequired,
-
     #[error("Payload size incorrect")]
     PayloadSizeIncorrect,
     #[error("Unexpected packet type")]
