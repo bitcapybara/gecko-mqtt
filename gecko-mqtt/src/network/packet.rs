@@ -7,36 +7,20 @@ const PAYLOAD_MAX_LENGTH: usize = 268_435_455;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("Invalid packet type: {0}")]
-    InvalidPacketType(u8),
-    #[error("Malformed packet")]
-    MalformedPacket,
     #[error("At least {0} more bytes required")]
     InsufficientBytes(usize),
     #[error("Malformed UTF-8 string")]
     MalformedString,
-    #[error("Invalid protocol")]
-    InvalidProtocol,
-    #[error("Invalid protocol level: {0}")]
-    InvalidProtocolLevel(u8),
-    #[error("Incorrect packet format")]
-    IncorrectPacketFormat,
+    #[error("Malformed packet")]
+    MalformedPacket,
     #[error("Invalid QoS: {0}")]
     InvalidQoS(u8),
-    #[error("Payload required")]
-    PayloadRequired,
     #[error("Payload too large")]
     PayloadTooLarge,
-    #[error("Payload size incorrect")]
-    PayloadSizeIncorrect,
-    #[error("Unexpected packet type")]
-    UnexpectedPacketType,
-    #[error("Miss packet id")]
-    MissPacketId,
-    #[error("Invalid publish topic")]
-    InvalidPublishTopic,
-    #[error("Invalid subscribe filter")]
-    InvalidSubscribeFilter,
+    #[error("Invalid v4 packet: {0}")]
+    V4(#[from] v4::Error),
+    #[error("Invalid v5 packet: {0}")]
+    V5(#[from] v5::Error),
 }
 
 #[derive(Debug, PartialEq, Eq)]

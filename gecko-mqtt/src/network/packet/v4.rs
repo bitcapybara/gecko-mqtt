@@ -17,8 +17,6 @@ pub use subscribe::*;
 pub use unsuback::*;
 pub use unsubscribe::*;
 
-use super::Error;
-
 pub mod connack;
 pub mod connect;
 pub mod pingresp;
@@ -31,6 +29,33 @@ pub mod suback;
 pub mod subscribe;
 pub mod unsuback;
 pub mod unsubscribe;
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("Invalid packet type: {0}")]
+    InvalidPacketType(u8),
+
+    #[error("Invalid protocol")]
+    InvalidProtocol,
+    #[error("Invalid protocol level: {0}")]
+    InvalidProtocolLevel(u8),
+    #[error("Incorrect packet format")]
+    IncorrectPacketFormat,
+
+    #[error("Payload required")]
+    PayloadRequired,
+
+    #[error("Payload size incorrect")]
+    PayloadSizeIncorrect,
+    #[error("Unexpected packet type")]
+    UnexpectedPacketType,
+    #[error("Miss packet id")]
+    MissPacketId,
+    #[error("Invalid publish topic")]
+    InvalidPublishTopic,
+    #[error("Invalid subscribe filter")]
+    InvalidSubscribeFilter,
+}
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -63,7 +88,7 @@ pub struct FixedHeader {
 
 impl FixedHeader {
     #[inline]
-    fn packet_type(&self) -> Result<PacketType, Error> {
+    fn packet_type(&self) -> Result<PacketType, super::Error> {
         let num = self.byte1 >> 4;
         match num {
             1 => Ok(PacketType::Connect),
@@ -80,7 +105,7 @@ impl FixedHeader {
             12 => Ok(PacketType::PingReq),
             13 => Ok(PacketType::PingResp),
             14 => Ok(PacketType::Disconnect),
-            n => Err(Error::InvalidPacketType(n)),
+            n => Err(Error::InvalidPacketType(n))?,
         }
     }
 
@@ -92,10 +117,10 @@ impl FixedHeader {
 }
 
 impl FixedHeader {
-    fn read_from(mut stream: Iter<u8>) -> Result<Self, Error> {
+    fn read_from(mut stream: Iter<u8>) -> Result<Self, super::Error> {
         let stream_len = stream.len();
         if stream_len < 2 {
-            return Err(Error::InsufficientBytes(2 - stream_len));
+            return Err(super::Error::InsufficientBytes(2 - stream_len));
         }
         // 第一个字节
         let byte1 = stream.next().unwrap();
@@ -124,12 +149,12 @@ impl FixedHeader {
 
             // 剩余长度字节最多四个字节（0，7，14，21）
             if shift > 21 {
-                return Err(Error::MalformedPacket);
+                return Err(super::Error::MalformedPacket);
             }
         }
 
         if !done {
-            return Err(Error::InsufficientBytes(1));
+            return Err(super::Error::InsufficientBytes(1))?;
         }
 
         Ok(Self {
@@ -159,13 +184,13 @@ pub enum Packet {
 }
 
 impl Packet {
-    pub(crate) fn read(stream: &mut BytesMut) -> Result<Self, Error> {
+    pub(crate) fn read(stream: &mut BytesMut) -> Result<Self, super::Error> {
         let stream_len = stream.len();
         let fixed_header: FixedHeader = FixedHeader::read_from(stream.iter())?;
 
         let packet_len = fixed_header.packet_len();
         if stream_len < packet_len {
-            return Err(Error::InsufficientBytes(packet_len - stream_len));
+            return Err(super::Error::InsufficientBytes(packet_len - stream_len))?;
         }
 
         // 根据固定头给出的长度信息，取出整个报文字节（包含报文头）
@@ -180,7 +205,7 @@ impl Packet {
                 PacketType::PingReq => Ok(Packet::PingReq),
                 PacketType::PingResp => Ok(Packet::PingResp),
                 PacketType::Disconnect => Ok(Packet::Disconnect),
-                _ => Err(Error::PayloadRequired),
+                _ => Err(Error::PayloadRequired)?,
             };
         }
 
@@ -201,13 +226,13 @@ impl Packet {
             PacketType::Unsubscribe => {
                 Packet::Unsubscribe(Unsubscribe::read(fixed_header, stream)?)
             }
-            _ => return Err(Error::UnexpectedPacketType),
+            _ => return Err(Error::UnexpectedPacketType)?,
         };
 
         Ok(packet)
     }
 
-    pub(crate) fn write(&self, stream: &mut BytesMut) -> Result<(), Error> {
+    pub(crate) fn write(&self, stream: &mut BytesMut) -> Result<(), super::Error> {
         match self {
             Packet::ConnAck(ack) => ack.write(stream),
             Packet::PingResp => PingResp.write(stream),
@@ -218,7 +243,7 @@ impl Packet {
             Packet::PubRec(pubrec) => pubrec.write(stream),
             Packet::PubRel(pubrel) => pubrel.write(stream),
             Packet::UnsubAck(unsuback) => unsuback.write(stream),
-            _ => Err(Error::UnexpectedPacketType),
+            _ => Err(Error::UnexpectedPacketType)?,
         }
     }
 

@@ -24,12 +24,12 @@ impl Connect {
         let protocol_name = packet::read_string(&mut stream)?;
         let protocol_level = packet::read_u8(&mut stream)?;
         if protocol_name != "MQTT" {
-            return Err(Error::InvalidProtocol);
+            return Err(super::Error::InvalidProtocol)?;
         }
         let protocol = match protocol_level {
             4 => Protocol::V4,
             5 => Protocol::V5,
-            num => return Err(Error::InvalidProtocolLevel(num)),
+            num => return Err(super::Error::InvalidProtocolLevel(num))?,
         };
 
         let connect_flags = packet::read_u8(&mut stream)?;
@@ -68,7 +68,7 @@ impl LastWill {
     fn read(connect_flags: u8, stream: &mut Bytes) -> Result<Option<LastWill>, Error> {
         let last_will = match connect_flags & 0b100 {
             0 if (connect_flags & 0b0011_1000) != 0 => {
-                return Err(Error::IncorrectPacketFormat);
+                return Err(super::Error::IncorrectPacketFormat)?;
             }
             0 => None,
             _ => Some(LastWill {

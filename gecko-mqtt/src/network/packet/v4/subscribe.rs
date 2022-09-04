@@ -19,7 +19,7 @@ impl Subscribe {
         while stream.has_remaining() {
             let filter = packet::read_string(&mut stream)?;
             if !topic::valid_subscribe_filter(&filter) {
-                return Err(Error::InvalidSubscribeFilter);
+                return Err(super::Error::InvalidSubscribeFilter)?;
             }
             let options = read_u8(&mut stream)?;
             let qos = options & 0b0000_0011;

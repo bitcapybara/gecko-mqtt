@@ -42,14 +42,14 @@ impl Publish {
 
         let topic = packet::read_string(&mut stream)?;
         if !topic::valid_publish_topic(&topic) {
-            return Err(Error::InvalidPublishTopic);
+            return Err(super::Error::InvalidPublishTopic)?;
         }
         let packet_id = match qos {
             QoS::AtMostOnce => 0,
             QoS::AtLeastOnce | QoS::ExactlyOnce => {
                 let pkid = packet::read_u16(&mut stream)?;
                 if pkid == 0 {
-                    return Err(Error::MissPacketId);
+                    return Err(super::Error::MissPacketId)?;
                 }
                 pkid
             }
@@ -79,7 +79,7 @@ impl Publish {
         if self.qos != QoS::AtMostOnce {
             let pkid = self.packet_id;
             if pkid == 0 {
-                return Err(Error::MissPacketId);
+                return Err(super::Error::MissPacketId)?;
             }
 
             stream.put_u16(pkid);
