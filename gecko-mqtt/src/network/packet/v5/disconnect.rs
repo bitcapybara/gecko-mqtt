@@ -1,4 +1,8 @@
-use crate::network::packet::Error;
+use bytes::{Buf, BufMut, Bytes, BytesMut};
+
+use crate::network::packet::{self, Error, FixedHeader};
+
+use super::PropertyType;
 
 #[derive(Debug)]
 pub struct Disconnect {
@@ -6,6 +10,69 @@ pub struct Disconnect {
     pub reason_code: DisconnectReasonCode,
     /// 断开连接属性
     pub properties: Option<DisconnectProperties>,
+}
+
+impl Disconnect {
+    pub fn len(&self) -> usize {
+        if self.reason_code == DisconnectReasonCode::NormalDisconnection
+            && self.properties.is_none()
+        {
+            return 2;
+        }
+
+        let mut length = 0;
+        match &self.properties {
+            Some(properties) => {
+                length += 1;
+                let properties_len = properties.len();
+                let properties_len_len = super::len_len(properties_len);
+                length += properties_len_len + properties_len;
+            }
+            None => length += 1,
+        }
+
+        length
+    }
+
+    pub fn read(fixed_header: FixedHeader, mut stream: Bytes) -> Result<Self, Error> {
+        if fixed_header.byte1 & 0b0000_1111 != 0x00 {
+            return Err(Error::MalformedPacket);
+        }
+
+        if fixed_header.remaining_len == 0 {
+            return Ok(Self {
+                reason_code: DisconnectReasonCode::NormalDisconnection,
+                properties: None,
+            });
+        }
+
+        Ok(Self {
+            reason_code: packet::read_u8(&mut stream)?.try_into()?,
+            properties: DisconnectProperties::read(&mut stream)?,
+        })
+    }
+
+    pub fn write(&self, stream: &mut BytesMut) -> Result<(), Error> {
+        stream.put_u8(0xE0);
+
+        let len = self.len();
+        if len == 2 {
+            stream.put_u8(0x00);
+            return Ok(());
+        }
+        packet::write_remaining_length(stream, len)?;
+        stream.put_u8(self.reason_code as u8);
+
+        match &self.properties {
+            Some(properties) => {
+                properties.write(stream)?;
+            }
+            None => {
+                packet::write_remaining_length(stream, 0)?;
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -18,6 +85,106 @@ pub struct DisconnectProperties {
     pub user_properties: Vec<(String, String)>,
     /// 服务器节点标识符
     pub server_reference: Option<String>,
+}
+
+impl DisconnectProperties {
+    fn len(&self) -> usize {
+        let mut len = 0;
+
+        if self.session_expiry_interval.is_some() {
+            len += 1 + 4;
+        }
+
+        if let Some(reason) = &self.reason_string {
+            len += 1 + 2 + reason.len();
+        }
+
+        for (key, value) in &self.user_properties {
+            len += 1 + 2 + key.len() + 2 + value.len();
+        }
+
+        if let Some(server_reference) = &self.server_reference {
+            len += 1 + 2 + server_reference.len();
+        }
+
+        len
+    }
+
+    fn read(stream: &mut Bytes) -> Result<Option<Self>, Error> {
+        let (properties_len_len, properties_len) = packet::length(stream.iter())?;
+        stream.advance(properties_len_len);
+        if properties_len == 0 {
+            return Ok(None);
+        }
+
+        let mut session_expiry_interval = None;
+        let mut reason_string = None;
+        let mut user_properties = Vec::new();
+        let mut server_reference = None;
+
+        let mut cursor = 0;
+        while cursor < properties_len {
+            let prop = packet::read_u8(stream)?;
+            cursor += 1;
+
+            match prop.try_into()? {
+                PropertyType::SessionExpiryInterval => {
+                    session_expiry_interval = Some(packet::read_u32(stream)?);
+                    cursor += 4;
+                }
+                PropertyType::ReasonString => {
+                    let reason = packet::read_string(stream)?;
+                    cursor += 2 + reason.len();
+                    reason_string = Some(reason);
+                }
+                PropertyType::UserProperty => {
+                    let key = packet::read_string(stream)?;
+                    let value = packet::read_string(stream)?;
+                    cursor += 2 + key.len() + 2 + value.len();
+                    user_properties.push((key, value));
+                }
+                PropertyType::ServerReference => {
+                    let reference = packet::read_string(stream)?;
+                    cursor += 2 + reference.len();
+                    server_reference = Some(reference);
+                }
+                _ => return Err(Error::InvalidPacketType(prop)),
+            }
+        }
+
+        Ok(Some(Self {
+            session_expiry_interval,
+            reason_string,
+            user_properties,
+            server_reference,
+        }))
+    }
+
+    fn write(&self, stream: &mut BytesMut) -> Result<(), Error> {
+        packet::write_remaining_length(stream, self.len())?;
+
+        if let Some(session_expiry_interval) = self.session_expiry_interval {
+            stream.put_u8(PropertyType::SessionExpiryInterval as u8);
+            stream.put_u32(session_expiry_interval);
+        }
+
+        if let Some(reason) = &self.reason_string {
+            stream.put_u8(PropertyType::ReasonString as u8);
+            packet::write_string(stream, reason);
+        }
+
+        for (key, value) in &self.user_properties {
+            stream.put_u8(PropertyType::UserProperty as u8);
+            packet::write_string(stream, key);
+            packet::write_string(stream, value);
+        }
+
+        if let Some(reference) = &self.server_reference {
+            stream.put_u8(PropertyType::ServerReference as u8);
+            packet::write_string(stream, reference);
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
