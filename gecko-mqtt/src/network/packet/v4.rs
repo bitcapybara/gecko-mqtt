@@ -34,10 +34,7 @@ pub mod unsubscribe;
 pub enum Error {
     #[error("Invalid packet type: {0}")]
     InvalidPacketType(u8),
-    #[error("Invalid protocol")]
-    InvalidProtocol,
-    #[error("Invalid protocol level: {0}")]
-    InvalidProtocolLevel(u8),
+
     #[error("Incorrect packet format")]
     IncorrectPacketFormat,
     #[error("Payload required")]
@@ -121,38 +118,7 @@ impl FixedHeader {
         }
         // 第一个字节
         let byte1 = stream.next().unwrap();
-        // 剩余字节长度
-        let mut remaining_len: usize = 0;
-        // 固定头长度
-        let mut header_len = 0;
-        let mut done = false;
-        let mut shift = 0;
-
-        for byte in stream {
-            // 固定头长度 + 1
-            header_len += 1;
-            // 剩余长度字节
-            let byte = *byte as usize;
-            // 字节的后七位 * 128 + 上一个字节
-            remaining_len += (byte & 0x7F) << shift;
-
-            // 是否还有后续 remining_len 字节
-            done = (byte & 0x80) == 0;
-            if done {
-                break;
-            }
-
-            shift += 7;
-
-            // 剩余长度字节最多四个字节（0，7，14，21）
-            if shift > 21 {
-                return Err(super::Error::MalformedPacket);
-            }
-        }
-
-        if !done {
-            return Err(super::Error::InsufficientBytes(1))?;
-        }
+        let (remaining_len, header_len) = super::length(stream)?;
 
         Ok(Self {
             byte1: *byte1,

@@ -24,12 +24,12 @@ impl Connect {
         let protocol_name = packet::read_string(&mut stream)?;
         let protocol_level = packet::read_u8(&mut stream)?;
         if protocol_name != "MQTT" {
-            return Err(super::Error::InvalidProtocol)?;
+            return Err(Error::InvalidProtocol);
         }
         let protocol = match protocol_level {
             4 => Protocol::V4,
             5 => Protocol::V5,
-            num => return Err(super::Error::InvalidProtocolLevel(num))?,
+            num => return Err(Error::InvalidProtocolLevel(num))?,
         };
 
         let connect_flags = packet::read_u8(&mut stream)?;

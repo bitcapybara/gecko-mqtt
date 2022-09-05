@@ -1,3 +1,5 @@
+use std::slice::Iter;
+
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
 pub mod v4;
@@ -17,6 +19,10 @@ pub enum Error {
     InvalidQoS(u8),
     #[error("Payload too large")]
     PayloadTooLarge,
+    #[error("Invalid protocol")]
+    InvalidProtocol,
+    #[error("Invalid protocol level: {0}")]
+    InvalidProtocolLevel(u8),
     #[error("Invalid v4 packet: {0}")]
     V4(#[from] v4::Error),
     #[error("Invalid v5 packet: {0}")]
@@ -102,6 +108,14 @@ fn read_u8(stream: &mut Bytes) -> Result<u8, Error> {
     Ok(stream.get_u8())
 }
 
+fn read_u32(stream: &mut Bytes) -> Result<u32, Error> {
+    if stream.len() < 4 {
+        return Err(Error::MalformedPacket);
+    }
+
+    Ok(stream.get_u32())
+}
+
 fn write_remaining_length(stream: &mut BytesMut, len: usize) -> Result<usize, Error> {
     if len > PAYLOAD_MAX_LENGTH {
         return Err(Error::PayloadTooLarge);
@@ -133,4 +147,41 @@ fn write_bytes(stream: &mut BytesMut, bytes: &[u8]) {
 
 fn write_string(stream: &mut BytesMut, string: &str) {
     write_bytes(stream, string.as_bytes())
+}
+
+pub fn length(stream: Iter<u8>) -> Result<(usize, usize), Error> {
+    // 剩余字节长度
+    let mut remaining_len = 0;
+    // 固定头长度
+    let mut header_len = 0;
+    let mut done = false;
+    let mut shift = 0;
+
+    for byte in stream {
+        // 固定头长度 + 1
+        header_len += 1;
+        // 剩余长度字节
+        let byte = *byte as usize;
+        // 字节的后七位 * 128 + 上一个字节
+        remaining_len += (byte & 0x7F) << shift;
+
+        // 是否还有后续 remining_len 字节
+        done = (byte & 0x80) == 0;
+        if done {
+            break;
+        }
+
+        shift += 7;
+
+        // 剩余长度字节最多四个字节（0，7，14，21）
+        if shift > 21 {
+            return Err(Error::MalformedPacket);
+        }
+    }
+
+    if !done {
+        return Err(Error::InsufficientBytes(1));
+    }
+
+    Ok((header_len, remaining_len))
 }

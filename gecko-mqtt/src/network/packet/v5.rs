@@ -1,10 +1,15 @@
 //! v5 协议版本报文
+
+use std::slice::Iter;
+
+use bytes::Bytes;
 mod connack;
+mod connect;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("aa")]
-    Test,
+    #[error("Invalid property type: {0}")]
+    InvalidPropertyType(u8),
 }
 
 #[repr(u8)]
@@ -37,6 +42,45 @@ enum PropertyType {
     WildcardSubscriptionAvailable = 40,
     SubscriptionIdentifierAvailable = 41,
     SharedSubscriptionAvailable = 42,
+}
+
+impl TryFrom<u8> for PropertyType {
+    type Error = super::Error;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        let property = match value {
+            1 => PropertyType::PayloadFormatIndicator,
+            2 => PropertyType::MessageExpiryInterval,
+            3 => PropertyType::ContentType,
+            8 => PropertyType::ResponseTopic,
+            9 => PropertyType::CorrelationData,
+            11 => PropertyType::SubscriptionIdentifier,
+            17 => PropertyType::SessionExpiryInterval,
+            18 => PropertyType::AssignedClientIdentifier,
+            19 => PropertyType::ServerKeepAlive,
+            21 => PropertyType::AuthenticationMethod,
+            22 => PropertyType::AuthenticationData,
+            23 => PropertyType::RequestProblemInformation,
+            24 => PropertyType::WillDelayInterval,
+            25 => PropertyType::RequestResponseInformation,
+            26 => PropertyType::ResponseInformation,
+            28 => PropertyType::ServerReference,
+            31 => PropertyType::ReasonString,
+            33 => PropertyType::ReceiveMaximum,
+            34 => PropertyType::TopicAliasMaximum,
+            35 => PropertyType::TopicAlias,
+            36 => PropertyType::MaximumQos,
+            37 => PropertyType::RetainAvailable,
+            38 => PropertyType::UserProperty,
+            39 => PropertyType::MaximumPacketSize,
+            40 => PropertyType::WildcardSubscriptionAvailable,
+            41 => PropertyType::SubscriptionIdentifierAvailable,
+            42 => PropertyType::SharedSubscriptionAvailable,
+            num => return Err(Error::InvalidPropertyType(num))?,
+        };
+
+        Ok(property)
+    }
 }
 
 fn len_len(len: usize) -> usize {

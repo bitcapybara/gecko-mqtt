@@ -6,8 +6,11 @@ use super::PropertyType;
 
 #[derive(Debug)]
 pub struct ConnAck {
+    /// 会话是否存在
     pub session_present: bool,
+    /// 返回码
     pub code: ConnectReturnCode,
+    /// 属性
     pub properties: Option<ConnAckProperties>,
 }
 
