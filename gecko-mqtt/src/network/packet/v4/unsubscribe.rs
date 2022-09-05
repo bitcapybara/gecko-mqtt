@@ -2,7 +2,7 @@ use bytes::Bytes;
 
 use crate::network::packet::{self, Error};
 
-use super::FixedHeader;
+use packet::FixedHeader;
 
 #[derive(Debug)]
 pub struct Unsubscribe {

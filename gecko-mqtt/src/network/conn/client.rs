@@ -1,5 +1,5 @@
 use bytes::BytesMut;
-use packet::v4::{ConnAck, PacketType};
+use packet::v4::ConnAck;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
@@ -7,7 +7,7 @@ use tokio::{
 };
 
 use crate::network::{
-    packet::{self, v4::Packet},
+    packet::{self, v4::Packet, PacketType},
     v4::Connect,
 };
 

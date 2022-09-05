@@ -2,7 +2,7 @@ pub(crate) use client::ClientConnection;
 pub(crate) use peer::PeerConnection;
 use tokio::{io, time};
 
-use super::{packet, v4::PacketType};
+use super::packet::{self, PacketType};
 
 mod client;
 mod peer;

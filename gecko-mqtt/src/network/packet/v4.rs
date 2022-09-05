@@ -1,7 +1,5 @@
 //! 3.1.1 协议版本报文
 
-use std::slice::Iter;
-
 use bytes::{Buf, BytesMut};
 
 pub use connack::*;
@@ -16,6 +14,8 @@ pub use suback::*;
 pub use subscribe::*;
 pub use unsuback::*;
 pub use unsubscribe::*;
+
+use super::PacketType;
 
 pub mod connack;
 pub mod connect;
@@ -32,9 +32,6 @@ pub mod unsubscribe;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("Invalid packet type: {0}")]
-    InvalidPacketType(u8),
-
     #[error("Incorrect packet format")]
     IncorrectPacketFormat,
     #[error("Payload required")]
@@ -49,83 +46,6 @@ pub enum Error {
     InvalidPublishTopic,
     #[error("Invalid subscribe filter")]
     InvalidSubscribeFilter,
-}
-
-#[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PacketType {
-    Connect = 1,
-    ConnAck,
-    Publish,
-    PubAck,
-    PubRec,
-    PubRel,
-    PubComp,
-    Subscribe,
-    SubAck,
-    Unsubscribe,
-    UnsubAck,
-    PingReq,
-    PingResp,
-    Disconnect,
-}
-
-#[derive(Debug)]
-pub struct FixedHeader {
-    /// 固定头的第一个字节，包含报文类型和flags
-    byte1: u8,
-    // 固定头的大小
-    fixed_header_len: usize,
-    // 剩余长度大小
-    remaining_len: usize,
-}
-
-impl FixedHeader {
-    #[inline]
-    fn packet_type(&self) -> Result<PacketType, super::Error> {
-        let num = self.byte1 >> 4;
-        match num {
-            1 => Ok(PacketType::Connect),
-            2 => Ok(PacketType::ConnAck),
-            3 => Ok(PacketType::Publish),
-            4 => Ok(PacketType::PubAck),
-            5 => Ok(PacketType::PubRec),
-            6 => Ok(PacketType::PubRel),
-            7 => Ok(PacketType::PubComp),
-            8 => Ok(PacketType::Subscribe),
-            9 => Ok(PacketType::SubAck),
-            10 => Ok(PacketType::Unsubscribe),
-            11 => Ok(PacketType::UnsubAck),
-            12 => Ok(PacketType::PingReq),
-            13 => Ok(PacketType::PingResp),
-            14 => Ok(PacketType::Disconnect),
-            n => Err(Error::InvalidPacketType(n))?,
-        }
-    }
-
-    /// 整个完整报文的字节长度
-    #[inline]
-    fn packet_len(&self) -> usize {
-        self.fixed_header_len + self.remaining_len
-    }
-}
-
-impl FixedHeader {
-    fn read_from(mut stream: Iter<u8>) -> Result<Self, super::Error> {
-        let stream_len = stream.len();
-        if stream_len < 2 {
-            return Err(super::Error::InsufficientBytes(2 - stream_len));
-        }
-        // 第一个字节
-        let byte1 = stream.next().unwrap();
-        let (remaining_len, header_len) = super::length(stream)?;
-
-        Ok(Self {
-            byte1: *byte1,
-            fixed_header_len: header_len + 1,
-            remaining_len,
-        })
-    }
 }
 
 #[derive(Debug)]
@@ -149,7 +69,7 @@ pub enum Packet {
 impl Packet {
     pub(crate) fn read(stream: &mut BytesMut) -> Result<Self, super::Error> {
         let stream_len = stream.len();
-        let fixed_header: FixedHeader = FixedHeader::read_from(stream.iter())?;
+        let fixed_header = super::FixedHeader::read_from(stream.iter())?;
 
         let packet_len = fixed_header.packet_len();
         if stream_len < packet_len {

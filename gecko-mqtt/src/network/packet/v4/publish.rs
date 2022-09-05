@@ -5,7 +5,7 @@ use crate::network::{
     topic,
 };
 
-use super::FixedHeader;
+use packet::FixedHeader;
 
 #[derive(Debug, Clone)]
 pub struct Publish {

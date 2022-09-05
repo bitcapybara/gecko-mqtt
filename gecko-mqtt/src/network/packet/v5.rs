@@ -1,12 +1,31 @@
 //! v5 协议版本报文
 
+use self::{
+    connack::ConnAck, connect::Connect, disconnect::Disconnect, puback::PubAck, pubcomp::PubComp,
+    publish::Publish, pubrec::PubRec, pubrel::PubRel, suback::SubAck, subscribe::Subscribe,
+    unsuback::UnsubAck, unsubscribe::Unsubscribe,
+};
+
 mod connack;
 mod connect;
+mod disconnect;
+mod pingresp;
+mod puback;
+mod pubcomp;
+mod publish;
+mod pubrec;
+mod pubrel;
+mod suback;
+mod subscribe;
+mod unsuback;
+mod unsubscribe;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Invalid property type: {0}")]
     InvalidPropertyType(u8),
+    #[error("Invalid disconnect reason code: {0}")]
+    InvalidDisconnectReasonCode(u8),
 }
 
 #[repr(u8)]
@@ -78,6 +97,30 @@ impl TryFrom<u8> for PropertyType {
 
         Ok(property)
     }
+}
+
+#[derive(Debug)]
+pub enum Packet {
+    Connect(Connect),
+    ConnAck(ConnAck),
+    Publish(Publish),
+    PubAck(PubAck),
+    PubRec(PubRec),
+    PubRel(PubRel),
+    PubComp(PubComp),
+    Subscribe(Subscribe),
+    SubAck(SubAck),
+    Unsubscribe(Unsubscribe),
+    UnsubAck(UnsubAck),
+    PingReq,
+    PingResp,
+    Disconnect(Disconnect),
+}
+
+#[derive(Debug)]
+pub struct PacketProperties {
+    pub reason_string: Option<String>,
+    pub user_properties: Vec<(String, String)>,
 }
 
 fn len_len(len: usize) -> usize {

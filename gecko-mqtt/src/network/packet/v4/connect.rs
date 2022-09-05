@@ -111,7 +111,7 @@ impl Login {
 #[cfg(test)]
 mod tests {
     use bytes::Buf;
-    use packet::v4::FixedHeader;
+    use packet::FixedHeader;
 
     use super::*;
 
