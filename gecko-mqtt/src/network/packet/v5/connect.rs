@@ -162,7 +162,7 @@ impl WillProperties {
                     cursor += 2 + key.len() + 2 + value.len();
                     user_properties.push((key, value));
                 }
-                _ => return Err(super::Error::InvalidPropertyType(prop))?,
+                _ => return Err(super::Error::UnexpectedPropertyType(prop))?,
             }
         }
         Ok(Some(Self {
@@ -275,7 +275,7 @@ impl ConnectProperties {
                     cursor += 2 + data.len();
                     authentication_data = Some(data);
                 }
-                _ => return Err(super::Error::InvalidPropertyType(prop))?,
+                _ => return Err(super::Error::UnexpectedPropertyType(prop))?,
             }
         }
 

@@ -25,7 +25,7 @@ mod unsubscribe;
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Invalid property type: {0}")]
-    InvalidPropertyType(u8),
+    UnexpectedPropertyType(u8),
     #[error("Invalid disconnect reason code: {0}")]
     InvalidDisconnectReasonCode(u8),
     #[error("Invalid puback reason code: {0}")]
@@ -96,7 +96,7 @@ impl TryFrom<u8> for PropertyType {
             40 => PropertyType::WildcardSubscriptionAvailable,
             41 => PropertyType::SubscriptionIdentifierAvailable,
             42 => PropertyType::SharedSubscriptionAvailable,
-            num => return Err(Error::InvalidPropertyType(num))?,
+            num => return Err(Error::UnexpectedPropertyType(num))?,
         };
 
         Ok(property)
@@ -169,7 +169,7 @@ impl PacketProperties {
                     cursor += 2 + key.len() + 2 + value.len();
                     user_properties.push((key, value));
                 }
-                _ => return Err(Error::InvalidPropertyType(prop))?,
+                _ => return Err(Error::UnexpectedPropertyType(prop))?,
             }
         }
 
