@@ -1,8 +1,5 @@
 //! v5 协议版本报文
 
-use std::slice::Iter;
-
-use bytes::Bytes;
 mod connack;
 mod connect;
 

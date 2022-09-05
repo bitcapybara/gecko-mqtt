@@ -15,7 +15,7 @@ pub struct Connect {
     /// 遗嘱消息
     pub last_will: Option<LastWill>,
     /// 登录凭证
-    pub login: Option<Login>,
+    pub login: Login,
 }
 
 impl Connect {
@@ -87,13 +87,13 @@ impl LastWill {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Login {
     /// 用户名
-    pub username: String,
+    pub username: Option<String>,
     /// 密码
-    pub password: String,
+    pub password: Option<String>,
 }
 
 impl Login {
-    fn read(connect_flags: u8, stream: &mut Bytes) -> Result<Option<Login>, Error> {
+    fn read(connect_flags: u8, stream: &mut Bytes) -> Result<Self, Error> {
         let username = match connect_flags & 0b1000_0000 {
             0 => None,
             _ => Some(packet::read_string(stream)?),
@@ -104,15 +104,7 @@ impl Login {
             _ => Some(packet::read_string(stream)?),
         };
 
-        let login = match (&username, &password) {
-            (None, None) => None,
-            _ => Some(Login {
-                username: username.unwrap_or_default(),
-                password: password.unwrap_or_default(),
-            }),
-        };
-
-        Ok(login)
+        Ok(Self { username, password })
     }
 }
 
@@ -195,10 +187,10 @@ mod tests {
                     qos: QoS::AtLeastOnce,
                     retain: false
                 }),
-                login: Some(Login {
-                    username: "rumq".into(),
-                    password: "mq".into()
-                })
+                login: Login {
+                    username: Some("rumq".into()),
+                    password: Some("mq".into())
+                }
             }
         );
     }

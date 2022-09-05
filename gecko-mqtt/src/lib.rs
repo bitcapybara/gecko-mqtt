@@ -18,7 +18,7 @@ mod server;
 #[async_trait]
 pub trait Hook: Send + Sync + 'static {
     /// 客户端认证
-    async fn authenticate(&self, login: Option<Login>) -> bool;
+    async fn authenticate(&self, login: Login) -> bool;
     /// 客户端上线
     async fn connected(&self, client_id: &str);
     /// 客户端连接断开
@@ -30,7 +30,7 @@ struct HookNoop;
 #[async_trait]
 impl Hook for HookNoop {
     /// 客户端认证
-    async fn authenticate(&self, _login: Option<Login>) -> bool {
+    async fn authenticate(&self, _login: Login) -> bool {
         true
     }
     /// 客户端上线

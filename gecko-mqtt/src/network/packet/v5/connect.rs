@@ -1,6 +1,6 @@
 use bytes::{Buf, Bytes};
 
-use crate::network::packet::{self, Error, Protocol};
+use crate::network::packet::{self, Error, Protocol, QoS};
 
 use super::PropertyType;
 
@@ -17,7 +17,7 @@ pub struct Connect {
     /// 遗嘱消息
     pub last_will: Option<LastWill>,
     /// 登录凭证
-    pub login: Option<Login>,
+    pub login: Login,
     /// 属性
     pub properties: Option<ConnectProperties>,
 }
@@ -46,7 +46,7 @@ impl Connect {
         };
 
         let client_id = packet::read_string(&mut stream)?;
-        let last_will = LastWill::read(&mut stream)?;
+        let last_will = LastWill::read(connect_flags, &mut stream)?;
         let login = Login::read(connect_flags, &mut stream)?;
 
         Ok(Self {
@@ -63,6 +63,41 @@ impl Connect {
 
 #[derive(Debug)]
 pub struct LastWill {
+    pub topic: String,
+    pub message: Bytes,
+    pub qos: QoS,
+    pub retain: bool,
+    pub properties: Option<WillProperties>,
+}
+
+impl LastWill {
+    fn read(connect_flags: u8, stream: &mut Bytes) -> Result<Option<Self>, Error> {
+        let last_will = match connect_flags & 0b100 {
+            0 if (connect_flags & 0b0011_1000) != 0 => return Err(Error::MalformedPacket),
+            0 => None,
+            _ => {
+                let properties = WillProperties::read(stream)?;
+                let topic = packet::read_string(stream)?;
+                let message = packet::read_bytes(stream)?;
+                let qos = ((connect_flags & 0b11000) >> 3).try_into()?;
+                let retain = (connect_flags & 0b0010_0000) != 0;
+
+                Some(Self {
+                    topic,
+                    message,
+                    qos,
+                    retain,
+                    properties,
+                })
+            }
+        };
+
+        Ok(last_will)
+    }
+}
+
+#[derive(Debug)]
+pub struct WillProperties {
     pub delay_interval: Option<u32>,
     pub payload_format_indicator: Option<u8>,
     pub message_expiry_interval: Option<u32>,
@@ -72,21 +107,95 @@ pub struct LastWill {
     pub user_properties: Vec<(String, String)>,
 }
 
-impl LastWill {
-    fn read(stream: &mut Bytes) -> Result<Option<Self>, Error> {
-        todo!()
+impl WillProperties {
+    fn read(stream: &mut Bytes) -> Result<Option<WillProperties>, Error> {
+        let mut delay_interval = None;
+        let mut payload_format_indicator = None;
+        let mut message_expiry_interval = None;
+        let mut content_type = None;
+        let mut response_topic = None;
+        let mut correlation_data = None;
+        let mut user_properties = Vec::new();
+
+        let (properties_len_len, properties_len) = packet::length(stream.iter())?;
+        stream.advance(properties_len_len);
+        if properties_len == 0 {
+            return Ok(None);
+        }
+
+        let mut cursor = 0;
+        while cursor < properties_len {
+            let prop = packet::read_u8(stream)?;
+            cursor += 1;
+
+            match prop.try_into()? {
+                PropertyType::WillDelayInterval => {
+                    delay_interval = Some(packet::read_u32(stream)?);
+                    cursor += 4;
+                }
+                PropertyType::PayloadFormatIndicator => {
+                    payload_format_indicator = Some(packet::read_u8(stream)?);
+                    cursor += 1;
+                }
+                PropertyType::MessageExpiryInterval => {
+                    message_expiry_interval = Some(packet::read_u32(stream)?);
+                    cursor += 4;
+                }
+                PropertyType::ContentType => {
+                    let typ = packet::read_string(stream)?;
+                    cursor += 2 + typ.len();
+                    content_type = Some(typ);
+                }
+                PropertyType::ResponseTopic => {
+                    let topic = packet::read_string(stream)?;
+                    cursor += 2 + topic.len();
+                    response_topic = Some(topic);
+                }
+                PropertyType::CorrelationData => {
+                    let data = packet::read_bytes(stream)?;
+                    cursor += 2 + data.len();
+                    correlation_data = Some(data);
+                }
+                PropertyType::UserProperty => {
+                    let key = packet::read_string(stream)?;
+                    let value = packet::read_string(stream)?;
+                    cursor += 2 + key.len() + 2 + value.len();
+                    user_properties.push((key, value));
+                }
+                _ => return Err(super::Error::InvalidPropertyType(prop))?,
+            }
+        }
+        Ok(Some(Self {
+            delay_interval,
+            payload_format_indicator,
+            message_expiry_interval,
+            content_type,
+            response_topic,
+            correlation_data,
+            user_properties,
+        }))
     }
 }
 
 #[derive(Debug)]
 pub struct Login {
-    pub username: String,
-    pub password: String,
+    pub username: Option<String>,
+    pub password: Option<String>,
 }
 
 impl Login {
-    fn read(connect_flags: u8, stream: &mut Bytes) -> Result<Option<Self>, Error> {
-        todo!()
+    fn read(connect_flags: u8, stream: &mut Bytes) -> Result<Self, Error> {
+        let username = match connect_flags & 0b1000_0000 {
+            0 => None,
+            _ => Some(packet::read_string(stream)?),
+        };
+
+        let password = match connect_flags & 0b0100_0000 {
+            0 => None,
+            _ => Some(packet::read_string(stream)?),
+        };
+
+        Ok(Self { username, password })
     }
 }
 
