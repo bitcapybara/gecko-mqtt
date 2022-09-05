@@ -288,7 +288,7 @@ impl TryFrom<u8> for DisconnectReasonCode {
             0xA0 => Self::MaximumConnectTime,
             0xA1 => Self::SubscriptionIdentifiersNotSupported,
             0xA2 => Self::WildcardSubscriptionsNotSupported,
-            other => return Err(super::Error::InvalidDisconnectReasonCode(other))?,
+            other => return Err(super::Error::InvalidReasonCode(other))?,
         };
 
         Ok(rc)

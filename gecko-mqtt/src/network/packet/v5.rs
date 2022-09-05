@@ -26,10 +26,8 @@ mod unsubscribe;
 pub enum Error {
     #[error("Invalid property type: {0}")]
     UnexpectedPropertyType(u8),
-    #[error("Invalid disconnect reason code: {0}")]
-    InvalidDisconnectReasonCode(u8),
-    #[error("Invalid puback reason code: {0}")]
-    InvalidPubAckReasonCode(u8),
+    #[error("Invalid reason code: {0}")]
+    InvalidReasonCode(u8),
 }
 
 #[repr(u8)]
