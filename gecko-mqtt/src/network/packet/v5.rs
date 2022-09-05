@@ -1,5 +1,7 @@
 //! v5 协议版本报文
 
+use bytes::{Buf, BufMut, Bytes, BytesMut};
+
 use self::{
     connack::ConnAck, connect::Connect, disconnect::Disconnect, puback::PubAck, pubcomp::PubComp,
     publish::Publish, pubrec::PubRec, pubrel::PubRel, suback::SubAck, subscribe::Subscribe,
@@ -26,6 +28,8 @@ pub enum Error {
     InvalidPropertyType(u8),
     #[error("Invalid disconnect reason code: {0}")]
     InvalidDisconnectReasonCode(u8),
+    #[error("Invalid puback reason code: {0}")]
+    InvalidPubAckReasonCode(u8),
 }
 
 #[repr(u8)]
@@ -121,6 +125,76 @@ pub enum Packet {
 pub struct PacketProperties {
     pub reason_string: Option<String>,
     pub user_properties: Vec<(String, String)>,
+}
+
+impl PacketProperties {
+    pub fn len(&self) -> usize {
+        let mut len = 0;
+
+        if let Some(reason) = &self.reason_string {
+            len += 1 + 2 + reason.len();
+        }
+
+        for (key, value) in &self.user_properties {
+            len += 1 + 2 + key.len() + 2 + value.len();
+        }
+
+        len
+    }
+
+    pub fn read(stream: &mut Bytes) -> Result<Option<Self>, super::Error> {
+        let mut reason_string = None;
+        let mut user_properties = Vec::new();
+
+        let (properties_len_len, properties_len) = super::length(stream.iter())?;
+        stream.advance(properties_len_len);
+        if properties_len == 0 {
+            return Ok(None);
+        }
+
+        let mut cursor = 0;
+        while cursor < properties_len {
+            let prop = super::read_u8(stream)?;
+            cursor += 1;
+
+            match prop.try_into()? {
+                PropertyType::ReasonString => {
+                    let reason = super::read_string(stream)?;
+                    cursor += 2 + reason.len();
+                    reason_string = Some(reason);
+                }
+                PropertyType::UserProperty => {
+                    let key = super::read_string(stream)?;
+                    let value = super::read_string(stream)?;
+                    cursor += 2 + key.len() + 2 + value.len();
+                    user_properties.push((key, value));
+                }
+                _ => return Err(Error::InvalidPropertyType(prop))?,
+            }
+        }
+
+        Ok(Some(Self {
+            reason_string,
+            user_properties,
+        }))
+    }
+
+    pub fn write(&self, stream: &mut BytesMut) -> Result<(), super::Error> {
+        super::write_remaining_length(stream, self.len())?;
+
+        if let Some(reason) = &self.reason_string {
+            stream.put_u8(PropertyType::ReasonString as u8);
+            super::write_string(stream, reason);
+        }
+
+        for (key, value) in &self.user_properties {
+            stream.put_u8(PropertyType::UserProperty as u8);
+            super::write_string(stream, key);
+            super::write_string(stream, value);
+        }
+
+        Ok(())
+    }
 }
 
 fn len_len(len: usize) -> usize {

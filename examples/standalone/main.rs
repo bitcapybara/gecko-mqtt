@@ -40,7 +40,7 @@ struct CustomHook;
 #[async_trait]
 impl Hook for CustomHook {
     /// 客户端认证
-    async fn authenticate(&self, _login: Option<Login>) -> bool {
+    async fn authenticate(&self, _login: Login) -> bool {
         info!("login authenticate");
         true
     }
