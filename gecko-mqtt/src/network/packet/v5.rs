@@ -28,6 +28,10 @@ pub enum Error {
     UnexpectedPropertyType(u8),
     #[error("Invalid reason code: {0}")]
     InvalidReasonCode(u8),
+    #[error("Invalid retain forward rule: {0}")]
+    InvalidRetainForwardRule(u8),
+    #[error("Empty subscription")]
+    EmptySubscription,
 }
 
 #[repr(u8)]
