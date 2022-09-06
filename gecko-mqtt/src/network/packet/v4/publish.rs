@@ -49,7 +49,7 @@ impl Publish {
             QoS::AtLeastOnce | QoS::ExactlyOnce => {
                 let pkid = packet::read_u16(&mut stream)?;
                 if pkid == 0 {
-                    return Err(super::Error::MissPacketId)?;
+                    return Err(Error::MissPacketId)?;
                 }
                 pkid
             }
@@ -79,7 +79,7 @@ impl Publish {
         if self.qos != QoS::AtMostOnce {
             let pkid = self.packet_id;
             if pkid == 0 {
-                return Err(super::Error::MissPacketId)?;
+                return Err(Error::MissPacketId)?;
             }
 
             stream.put_u16(pkid);

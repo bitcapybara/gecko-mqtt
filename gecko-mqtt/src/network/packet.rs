@@ -25,6 +25,8 @@ pub enum Error {
     InvalidProtocolLevel(u8),
     #[error("Invalid packet type: {0}")]
     InvalidPacketType(u8),
+    #[error("Miss packet id")]
+    MissPacketId,
     #[error("Invalid v4 packet: {0}")]
     V4(#[from] v4::Error),
     #[error("Invalid v5 packet: {0}")]

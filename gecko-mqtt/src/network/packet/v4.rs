@@ -40,8 +40,7 @@ pub enum Error {
     PayloadSizeIncorrect,
     #[error("Unexpected packet type")]
     UnexpectedPacketType,
-    #[error("Miss packet id")]
-    MissPacketId,
+
     #[error("Invalid publish topic")]
     InvalidPublishTopic,
     #[error("Invalid subscribe filter")]
