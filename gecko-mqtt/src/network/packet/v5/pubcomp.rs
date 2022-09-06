@@ -85,13 +85,13 @@ pub enum PubCompReason {
 }
 
 impl TryFrom<u8> for PubCompReason {
-    type Error = Error;
+    type Error = super::Error;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         let code = match value {
             0 => PubCompReason::Success,
             146 => PubCompReason::PacketIdentifierNotFound,
-            num => return Err(super::Error::InvalidReasonCode(num))?,
+            num => return Err(super::Error::InvalidReasonCode(num)),
         };
 
         Ok(code)

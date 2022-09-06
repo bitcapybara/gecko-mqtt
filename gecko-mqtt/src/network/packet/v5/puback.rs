@@ -93,7 +93,7 @@ pub enum PubAckReason {
 }
 
 impl TryFrom<u8> for PubAckReason {
-    type Error = Error;
+    type Error = super::Error;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         let code = match value {
@@ -106,7 +106,7 @@ impl TryFrom<u8> for PubAckReason {
             145 => PubAckReason::PacketIdentifierInUse,
             151 => PubAckReason::QuotaExceeded,
             153 => PubAckReason::PayloadFormatInvalid,
-            num => return Err(super::Error::InvalidReasonCode(num))?,
+            num => return Err(super::Error::InvalidReasonCode(num)),
         };
 
         Ok(code)

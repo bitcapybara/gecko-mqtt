@@ -255,7 +255,7 @@ pub enum DisconnectReasonCode {
 }
 
 impl TryFrom<u8> for DisconnectReasonCode {
-    type Error = Error;
+    type Error = super::Error;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         let rc = match value {
@@ -288,7 +288,7 @@ impl TryFrom<u8> for DisconnectReasonCode {
             0xA0 => Self::MaximumConnectTime,
             0xA1 => Self::SubscriptionIdentifiersNotSupported,
             0xA2 => Self::WildcardSubscriptionsNotSupported,
-            other => return Err(super::Error::InvalidReasonCode(other))?,
+            other => return Err(super::Error::InvalidReasonCode(other)),
         };
 
         Ok(rc)
