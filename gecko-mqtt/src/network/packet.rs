@@ -51,19 +51,6 @@ pub enum QoS {
     ExactlyOnce,
 }
 
-impl QoS {
-    pub fn downgrade<'a>(&'a self, qos: &'a QoS) -> &QoS {
-        match self {
-            QoS::AtMostOnce => self,
-            QoS::AtLeastOnce => match qos {
-                QoS::AtMostOnce => qos,
-                _ => self,
-            },
-            QoS::ExactlyOnce => qos,
-        }
-    }
-}
-
 impl TryFrom<u8> for QoS {
     type Error = Error;
 
