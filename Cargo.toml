@@ -2,5 +2,6 @@
 members = [
     "gecko-mqtt",
     "gecko-mqtt-proto",
+    "gecko-raft",
     "examples"
 ]
