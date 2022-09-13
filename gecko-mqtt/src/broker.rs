@@ -1,16 +1,29 @@
 use std::sync::Arc;
 
+use futures::TryFutureExt;
 use log::{debug, error, info};
-use tokio::{net::TcpListener, sync::mpsc};
+use tokio::{
+    net::TcpListener,
+    sync::mpsc::{self, Sender},
+};
 
 use crate::{
     config::Config,
-    error::Error,
-    network::{ClientEventLoop, PeerConnection},
-    protocol::{Incoming, Router},
+    network::{conn, ClientEventLoop, PeerConnection},
+    protocol::{router, Incoming, Router},
     server::PeerServer,
     Hook, HookNoop,
 };
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("Router Error: {0}")]
+    Router(#[from] router::Error),
+    #[error("Grpc Error: {0}")]
+    Grpc(#[from] tonic::transport::Error),
+    #[error("Conn error: {0}")]
+    Conn(#[from] conn::Error),
+}
 
 /// 代表一个 mqtts 节点
 pub struct Broker {
@@ -31,40 +44,39 @@ impl Broker {
         let (router_tx, router_rx) = mpsc::channel(1000);
         let router_hook = hook.clone();
         let session_cfg = self.cfg.session.clone();
-        tokio::spawn(async move {
-            debug!("start router loop");
-            let router = Router::new(session_cfg, router_hook, router_rx);
-            if let Err(e) = router.start().await {
-                error!("router exit error: {:?}", e)
-            }
-        });
+
+        debug!("start router loop");
+        let router = Router::new(session_cfg, router_hook, router_rx);
+        let router_handle = router.start().map_err(Error::Router);
 
         // 开启 grpc peer server
         let (peer_tx, peer_rx) = mpsc::channel(1000);
         let grpc_addr = self.cfg.broker.peer_addr.parse().unwrap();
-        tokio::spawn(async move {
-            debug!("start peer server loop");
-            tonic::transport::Server::builder()
-                .add_service(PeerServer::new_server(peer_tx))
-                .serve(grpc_addr)
-                .await
-                .unwrap();
-        });
+        debug!("start peer server loop");
+        let grpc_handle = tonic::transport::Server::builder()
+            .add_service(PeerServer::new_server(peer_tx))
+            .serve(grpc_addr)
+            .map_err(Error::Grpc);
 
         // 开启 peer conn 事件循环
-        let peer_router_tx = router_tx.clone();
-        tokio::spawn(async move {
-            debug!("start peer conn event loop");
-            let conn = PeerConnection::new(peer_rx);
-            if let Err(e) = conn.start(peer_router_tx) {
-                error!("eventloop on peer conn exit error: {:#}", e)
-            }
-        });
+        debug!("start peer conn event loop");
+        let conn = PeerConnection::new(peer_rx);
+        let peer_handle = conn.start(router_tx.clone()).map_err(Error::Conn);
 
         // 开启客户端连接监听
-        let listener = TcpListener::bind(&self.cfg.broker.client_addr)
-            .await
-            .unwrap();
+        let tcp_handle = Self::start_tcp(&self.cfg.broker.client_addr, router_tx, hook);
+
+        tokio::try_join!(router_handle, grpc_handle, peer_handle, tcp_handle)?;
+
+        Ok(())
+    }
+
+    async fn start_tcp<H: Hook>(
+        addr: &str,
+        router_tx: Sender<Incoming>,
+        hook: Arc<H>,
+    ) -> Result<(), Error> {
+        let listener = TcpListener::bind(addr).await.unwrap();
         debug!("start client server loop");
         loop {
             // 获取到连接

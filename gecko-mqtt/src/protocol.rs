@@ -7,7 +7,7 @@ use crate::network::v4::{ConnAck, Connect, Packet};
 
 pub(crate) use router::Router;
 
-mod router;
+pub mod router;
 mod session;
 mod subscripton;
 

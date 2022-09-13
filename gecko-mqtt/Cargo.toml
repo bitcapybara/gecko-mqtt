@@ -13,3 +13,5 @@ gecko-mqtt-proto = { path = "../gecko-mqtt-proto" }
 tonic = "0.8.0"
 toml = "0.5.9"
 serde = { version = "1.0.144", features = ["derive"] }
+futures = "0.3.24"
+clap = { version = "3.2.21", features = ["derive"] }

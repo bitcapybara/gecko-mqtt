@@ -26,7 +26,7 @@ impl PeerConnection {
         }
     }
 
-    pub(crate) fn start(self, _router_tx: Sender<Incoming>) -> Result<(), Error> {
+    pub(crate) async fn start(self, _router_tx: Sender<Incoming>) -> Result<(), Error> {
         Ok(())
     }
 

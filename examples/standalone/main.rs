@@ -1,14 +1,16 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use clap::Parser;
 use flexi_logger::{colored_opt_format, Logger};
 use gecko_mqtt::config::Config;
 use gecko_mqtt::{broker, Hook, Login};
 use log::info;
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize, clap::Parser)]
 struct Args {
     #[serde(default)]
+    #[clap(long, value_parser)]
     config_file: Option<String>,
 }
 
@@ -22,8 +24,12 @@ async fn main() {
         .unwrap();
 
     // 环境变量
-    let args = envy::from_env::<Args>().unwrap();
-    let config_file = args.config_file.unwrap_or_else(|| "standalone.toml".into());
+    let envs = envy::from_env::<Args>().unwrap();
+    let config_file_env = envs.config_file;
+
+    // 命令行
+    let args = Args::parse();
+    let config_file = config_file_env.unwrap_or_else(|| args.config_file.unwrap());
 
     // 获取配置
     let cfg = Config::from_path(&config_file).await;
