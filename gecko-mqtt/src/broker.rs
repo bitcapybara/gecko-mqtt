@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use futures::{TryFutureExt, FutureExt};
+use futures::{FutureExt, TryFutureExt};
 use log::{debug, error, info};
 use tokio::{
     net::TcpListener,
@@ -57,13 +57,17 @@ impl Broker {
         let (grpc_task, grpc_handle) = tonic::transport::Server::builder()
             .add_service(PeerServer::new_server(peer_tx))
             .serve(grpc_addr)
-            .map_err(Error::Grpc).remote_handle();
+            .map_err(Error::Grpc)
+            .remote_handle();
         tokio::spawn(grpc_task);
 
         // 开启 peer conn 事件循环
         debug!("start peer conn event loop");
         let peer = PeerConnection::new(peer_rx);
-        let (peer_task, peer_handle) = peer.start(router_tx.clone()).map_err(Error::PeerConn).remote_handle();
+        let (peer_task, peer_handle) = peer
+            .start(router_tx.clone())
+            .map_err(Error::PeerConn)
+            .remote_handle();
         tokio::spawn(peer_task);
 
         // 开启客户端连接监听
@@ -81,7 +85,9 @@ impl Broker {
         router_tx: Sender<Incoming>,
         hook: Arc<impl Hook>,
     ) -> Result<(), Error> {
-        let listener = TcpListener::bind(&self.cfg.broker.client_addr).await.unwrap();
+        let listener = TcpListener::bind(&self.cfg.broker.client_addr)
+            .await
+            .unwrap();
         loop {
             // 获取到连接
             let (stream, addr) = match listener.accept().await {
