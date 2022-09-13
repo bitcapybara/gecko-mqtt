@@ -35,11 +35,11 @@ impl Broker {
         Self { cfg }
     }
 
-    pub async fn start(&self) -> Result<(), Error> {
+    pub async fn start(self) -> Result<(), Error> {
         self.start_with_hook(Arc::new(HookNoop)).await
     }
 
-    pub async fn start_with_hook<H: Hook>(&self, hook: Arc<H>) -> Result<(), Error> {
+    pub async fn start_with_hook(self, hook: Arc<impl Hook>) -> Result<(), Error> {
         // router 后台协程
         let (router_tx, router_rx) = mpsc::channel(1000);
         let router_hook = hook.clone();
@@ -68,7 +68,7 @@ impl Broker {
 
         // 开启客户端连接监听
         debug!("start client server loop");
-        let (tcp_task, tcp_handle) = Self::start_tcp(self.cfg.broker.client_addr.clone(), router_tx, hook).remote_handle();
+        let (tcp_task, tcp_handle) = self.start_tcp(router_tx, hook).remote_handle();
         tokio::spawn(tcp_task);
 
         tokio::try_join!(router_handle, grpc_handle, peer_handle, tcp_handle)?;
@@ -76,12 +76,12 @@ impl Broker {
         Ok(())
     }
 
-    async fn start_tcp<H: Hook>(
-        addr: String,
+    async fn start_tcp(
+        self,
         router_tx: Sender<Incoming>,
-        hook: Arc<H>,
+        hook: Arc<impl Hook>,
     ) -> Result<(), Error> {
-        let listener = TcpListener::bind(addr).await.unwrap();
+        let listener = TcpListener::bind(&self.cfg.broker.client_addr).await.unwrap();
         loop {
             // 获取到连接
             let (stream, addr) = match listener.accept().await {
