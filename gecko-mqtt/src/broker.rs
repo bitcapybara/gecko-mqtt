@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use futures::TryFutureExt;
+use futures::{TryFutureExt, FutureExt};
 use log::{debug, error, info};
 use tokio::{
     net::TcpListener,
@@ -47,24 +47,29 @@ impl Broker {
 
         debug!("start router loop");
         let router = Router::new(session_cfg, router_hook, router_rx);
-        let router_handle = router.start().map_err(Error::Router);
+        let (router_task, router_handle) = router.start().map_err(Error::Router).remote_handle();
+        tokio::spawn(router_task);
 
         // 开启 grpc peer server
         let (peer_tx, peer_rx) = mpsc::channel(1000);
         let grpc_addr = self.cfg.broker.peer_addr.parse().unwrap();
         debug!("start peer server loop");
-        let grpc_handle = tonic::transport::Server::builder()
+        let (grpc_task, grpc_handle) = tonic::transport::Server::builder()
             .add_service(PeerServer::new_server(peer_tx))
             .serve(grpc_addr)
-            .map_err(Error::Grpc);
+            .map_err(Error::Grpc).remote_handle();
+        tokio::spawn(grpc_task);
 
         // 开启 peer conn 事件循环
         debug!("start peer conn event loop");
-        let conn = PeerConnection::new(peer_rx);
-        let peer_handle = conn.start(router_tx.clone()).map_err(Error::PeerConn);
+        let peer = PeerConnection::new(peer_rx);
+        let (peer_task, peer_handle) = peer.start(router_tx.clone()).map_err(Error::PeerConn).remote_handle();
+        tokio::spawn(peer_task);
 
         // 开启客户端连接监听
-        let tcp_handle = Self::start_tcp(&self.cfg.broker.client_addr, router_tx, hook);
+        debug!("start client server loop");
+        let (tcp_task, tcp_handle) = Self::start_tcp(self.cfg.broker.client_addr.clone(), router_tx, hook).remote_handle();
+        tokio::spawn(tcp_task);
 
         tokio::try_join!(router_handle, grpc_handle, peer_handle, tcp_handle)?;
 
@@ -72,12 +77,11 @@ impl Broker {
     }
 
     async fn start_tcp<H: Hook>(
-        addr: &str,
+        addr: String,
         router_tx: Sender<Incoming>,
         hook: Arc<H>,
     ) -> Result<(), Error> {
         let listener = TcpListener::bind(addr).await.unwrap();
-        debug!("start client server loop");
         loop {
             // 获取到连接
             let (stream, addr) = match listener.accept().await {
