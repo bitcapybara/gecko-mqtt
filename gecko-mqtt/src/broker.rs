@@ -21,8 +21,8 @@ pub enum Error {
     Router(#[from] router::Error),
     #[error("Grpc Error: {0}")]
     Grpc(#[from] tonic::transport::Error),
-    #[error("Conn error: {0}")]
-    Conn(#[from] conn::Error),
+    #[error("Peer conn error: {0}")]
+    PeerConn(#[from] conn::Error),
 }
 
 /// 代表一个 mqtts 节点
@@ -61,7 +61,7 @@ impl Broker {
         // 开启 peer conn 事件循环
         debug!("start peer conn event loop");
         let conn = PeerConnection::new(peer_rx);
-        let peer_handle = conn.start(router_tx.clone()).map_err(Error::Conn);
+        let peer_handle = conn.start(router_tx.clone()).map_err(Error::PeerConn);
 
         // 开启客户端连接监听
         let tcp_handle = Self::start_tcp(&self.cfg.broker.client_addr, router_tx, hook);
